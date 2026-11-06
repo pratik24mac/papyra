@@ -77,13 +77,17 @@ def test_reserved_ids_cover_dict_methods():
     assert {"items", "keys", "values", "get", "loop"} <= RESERVED_IDS
 
 
+def convert(docx):
+    """Use the backend's converter (isolated profile as a proper file URI, works on Windows too)."""
+    from docmaster.pdfconv.libreoffice import convert_to_pdf
+    return convert_to_pdf(docx)[0]
+
+
 @pytest.mark.skipif(SOFFICE is None, reason="LibreOffice not installed")
 def test_pdf_pages_and_text(tmp_path, values):
     from pypdf import PdfReader
     out = render(TPL, write(tmp_path, values), tmp_path / "out.docx")
-    subprocess.run([SOFFICE, "--headless", "--norestore", f"-env:UserInstallation=file://{tmp_path}/lo", "--convert-to", "pdf",
-                    "--outdir", str(tmp_path), str(out)], check=True, capture_output=True, timeout=120)
-    pdf = PdfReader(tmp_path / "out.pdf")
+    pdf = PdfReader(convert(out))
     assert len(pdf.pages) == 2
     text = "\n".join(p.extract_text() for p in pdf.pages)
     assert "ASHA VERMA" in text and "asha.verma@example.com" in text
@@ -96,9 +100,7 @@ def test_matches_approved_reference(tmp_path, values):
     from pypdf import PdfReader
     from PIL import Image, ImageChops
     out = render(TPL, write(tmp_path, values), tmp_path / "out.docx")
-    subprocess.run([SOFFICE, "--headless", "--norestore", f"-env:UserInstallation=file://{tmp_path}/lo", "--convert-to", "pdf",
-                    "--outdir", str(tmp_path), str(out)], check=True, capture_output=True, timeout=120)
-    ref, new = PdfReader(TPL / "reference.pdf"), PdfReader(tmp_path / "out.pdf")
+    ref, new = PdfReader(TPL / "reference.pdf"), PdfReader(convert(out))
     assert len(new.pages) == len(ref.pages)
     for a, b in zip(ref.pages, new.pages):
         assert a.extract_text().splitlines() == b.extract_text().splitlines()
