@@ -270,3 +270,17 @@ draft is the reliable path.
 * Email step shows why the mailbox option is unavailable; Privacy card says "On by default".
 * Tests: `test_socket_guard_blocks_raw_connections_while_offline`; offline-by-default assertions;
   e2e updated. The offline acceptance test (sockets disabled → everything works) still passes.
+
+## 2026-11-07 — Windows build via CI; repository on GitHub
+* Repository: private `pratik24mac/papyra` (history squashed to one clean commit without the
+  confidential source documents; originals live in the ignored `private/` folder; bundled fixture
+  is a synthetic person).
+* CI fixes needed to get the first green Windows job: `macos-latest` runner label; Windows-safe
+  unwritable-folder test; LibreOffice located through the backend locator in tests; Playwright specs
+  excluded from Vitest; fidelity tests convert through the backend (valid profile URI on Windows);
+  frontend build + backend staging before `cargo test` (Tauri codegen needs `../dist` and the
+  resource glob); Apple signing variables exported only when the secret exists.
+* **Windows job green (run 42268971479)**: pytest (fidelity regression included, LibreOffice from
+  choco), Vitest, cargo test, Playwright, backend one-dir, Tauri build → `Papyra_0.1.0_x64-setup.exe`
+  (17 MB, NSIS) and `Papyra_0.1.0_x64_en-US.msi` (22 MB), self-test of the built app passed,
+  artifact uploaded. Not yet installed by a human on a Windows PC.
