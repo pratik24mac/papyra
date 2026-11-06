@@ -16,7 +16,8 @@ from docmaster.storage.history import History  # noqa: E402
 from docmaster.storage.jobs import JobRecord, JobStore  # noqa: E402
 
 TPL = ROOT / "templates/resume-ats/v1"
-HAS_LO = Path("/Applications/LibreOffice.app").exists() or shutil.which("soffice")
+from docmaster.pdfconv.libreoffice import find_soffice  # noqa: E402
+HAS_LO = find_soffice() is not None
 
 
 class Ctx:

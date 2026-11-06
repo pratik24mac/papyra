@@ -7,11 +7,13 @@ from lxml import etree
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(ROOT / "backend"))
 from render_template import render, ValidationError, RESERVED_IDS  # noqa: E402
 
 TPL = ROOT / "templates" / "resume-ats" / "v1"
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
-SOFFICE = next((p for p in ["/Applications/LibreOffice.app/Contents/MacOS/soffice", shutil.which("soffice") or ""] if p and Path(p).exists()), None)
+from docmaster.pdfconv.libreoffice import find_soffice  # noqa: E402
+SOFFICE = str(find_soffice()) if find_soffice() else None
 
 
 @pytest.fixture
