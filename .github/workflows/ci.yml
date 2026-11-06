@@ -51,15 +51,15 @@ jobs:
       - name: Frontend unit tests
         working-directory: apps/desktop
         run: npx vitest run
+      - name: Build backend (one-dir) and stage resources (needed by the Tauri build script before cargo test)
+        run: ${{ runner.os == 'Windows' && '.venv\Scripts\python' || '.venv/bin/python' }} tools/build_backend.py
+
       - name: Rust unit tests
         working-directory: apps/desktop/src-tauri
         run: cargo test --lib
       - name: End-to-end tests (browser mock mode)
         working-directory: apps/desktop
         run: npx playwright install --with-deps chromium && npx playwright test
-
-      - name: Build backend (one-dir) and stage resources
-        run: ${{ runner.os == 'Windows' && '.venv\Scripts\python' || '.venv/bin/python' }} tools/build_backend.py
 
       - name: Build desktop app
         uses: tauri-apps/tauri-action@v0

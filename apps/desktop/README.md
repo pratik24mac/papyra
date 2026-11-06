@@ -53,3 +53,5 @@ The self-test never touches the keychain. Drafts are appended to the Drafts fold
 | `DOCMASTER_OUTPUT_DIR` | override the output folder (default: `~/Documents/Papyra`) |
 | `DOCMASTER_SELFTEST` | run the self-test and exit |
 | `DOCMASTER_SOFFICE` | explicit LibreOffice path for the backend |
+
+Note: `cargo test --lib` and `cargo build` need `src-tauri/resources/backend` to exist (the Tauri build script resolves the resource globs), so run `tools/build_backend.py` once after cloning.
