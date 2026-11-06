@@ -72,13 +72,24 @@ pub(crate) fn output_dir(app: &AppHandle) -> PathBuf {
     })
 }
 
+fn selftest_out(line: &str) {
+    println!("{line}");
+    if let Ok(path) = std::env::var("DOCMASTER_SELFTEST_LOG") {
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+            let _ = writeln!(f, "{line}");
+        }
+    }
+}
+
 /// `DOCMASTER_SELFTEST=1`: exercise the whole link without a human and exit 0/1.
+/// `DOCMASTER_SELFTEST_LOG=<file>` additionally appends every result line to that file.
 async fn selftest(app: AppHandle, templates: PathBuf) -> i32 {
     let backend = app.state::<Backend>();
     let mut ok = true;
     fn step(ok: &mut bool, name: &str, started: Instant, res: &Result<Value, RpcError>, pass: bool) {
-        println!("SELFTEST {name:<14} {:>6} ms  {}  {}", started.elapsed().as_millis(), if pass { "PASS" } else { "FAIL" },
-                 serde_json::to_string(res).unwrap_or_default().chars().take(220).collect::<String>());
+        selftest_out(&format!("SELFTEST {name:<14} {:>6} ms  {}  {}", started.elapsed().as_millis(), if pass { "PASS" } else { "FAIL" },
+                 serde_json::to_string(res).unwrap_or_default().chars().take(220).collect::<String>()));
         *ok &= pass;
     }
     let t = Instant::now();
@@ -157,7 +168,7 @@ async fn selftest(app: AppHandle, templates: PathBuf) -> i32 {
     let r2 = backend.call("settings.set", json!({ "key": "output_dir", "value": null }), Duration::from_secs(20)).await;
     step(&mut ok, "settings.reset", t, &r2, r2.as_ref().map(|v| v["output_dir"] == v["defaults"]["output_dir"]).unwrap_or(false));
     let notes = backend.notifications.load(std::sync::atomic::Ordering::Relaxed) - before;
-    println!("SELFTEST notifications  {notes} progress events received  {}", if notes >= 12 { "PASS" } else { "FAIL" });
+    selftest_out(&format!("SELFTEST notifications  {notes} progress events received  {}", if notes >= 12 { "PASS" } else { "FAIL" }));
     ok &= notes >= 12;
     let t = Instant::now();
     let r2 = backend.call("history.delete", json!({ "job_id": "selftest2", "delete_files": true }), Duration::from_secs(20)).await;
@@ -165,7 +176,7 @@ async fn selftest(app: AppHandle, templates: PathBuf) -> i32 {
     let t = Instant::now();
     let r = backend.call("system.ping", json!({}), Duration::from_secs(10)).await;
     step(&mut ok, "ping-after", t, &r, r.is_ok());
-    println!("SELFTEST RESULT {}", if ok { "PASS" } else { "FAIL" });
+    selftest_out(&format!("SELFTEST RESULT {}", if ok { "PASS" } else { "FAIL" }));
     if ok { 0 } else { 1 }
 }
 

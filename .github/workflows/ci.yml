@@ -95,13 +95,20 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           APP=$(ls -d apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app | head -1)
-          DOCMASTER_SELFTEST=1 DOCMASTER_OUTPUT_DIR="$RUNNER_TEMP/out" DOCMASTER_DATA_DIR="$RUNNER_TEMP/data" "$APP/Contents/MacOS/papyra"
+          DOCMASTER_SELFTEST=1 DOCMASTER_SELFTEST_LOG="$RUNNER_TEMP/selftest.log" DOCMASTER_OUTPUT_DIR="$RUNNER_TEMP/out" DOCMASTER_DATA_DIR="$RUNNER_TEMP/data" "$APP/Contents/MacOS/papyra"
+          grep -q "SELFTEST RESULT PASS" "$RUNNER_TEMP/selftest.log"
       - name: Self-test the built app (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $env:DOCMASTER_SELFTEST = "1"; $env:DOCMASTER_OUTPUT_DIR = "$env:RUNNER_TEMP\out"; $env:DOCMASTER_DATA_DIR = "$env:RUNNER_TEMP\data"
-          & "apps\desktop\src-tauri\target\${{ matrix.target }}\release\papyra.exe"
+          # GUI-subsystem exe: PowerShell does not wait and stdout is lost, so wait explicitly and read the log file
+          $log = "$env:RUNNER_TEMP\selftest.log"
+          $env:DOCMASTER_SELFTEST = "1"; $env:DOCMASTER_SELFTEST_LOG = $log
+          $env:DOCMASTER_OUTPUT_DIR = "$env:RUNNER_TEMP\out"; $env:DOCMASTER_DATA_DIR = "$env:RUNNER_TEMP\data"
+          $p = Start-Process -FilePath "apps\desktop\src-tauri\target\${{ matrix.target }}\release\papyra.exe" -Wait -PassThru
+          if (Test-Path $log) { Get-Content $log } else { Write-Host "no self-test log written" }
+          if ($p.ExitCode -ne 0) { throw "self-test exit code $($p.ExitCode)" }
+          if (-not (Test-Path $log) -or -not (Select-String -Path $log -Pattern "SELFTEST RESULT PASS" -Quiet)) { throw "self-test did not report PASS" }
 
       - uses: actions/upload-artifact@v4
         with:
