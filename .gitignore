@@ -1,0 +1,28 @@
+.venv/
+.pytest_cache/
+__pycache__/
+*.pyc
+.DS_Store
+node_modules/
+dist/
+build/
+target/
+apps/desktop/src-tauri/binaries/
+apps/desktop/src-tauri/gen/
+backend/build/
+backend/dist/
+
+# pyinstaller / build artefacts
+backend/pyinstaller/*.spec
+*.egg-info/
+
+# one-dir backend bundle and e2e output (built by tools/build_backend.py / playwright)
+apps/desktop/src-tauri/resources/
+apps/desktop/test-results/
+apps/desktop/playwright-report/
+apps/desktop/src-tauri/resources/
+apps/desktop/test-results/
+apps/desktop/playwright-report/
+
+# confidential source documents and reviews of them: never committed
+private/

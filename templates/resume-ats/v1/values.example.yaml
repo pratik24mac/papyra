@@ -1,0 +1,102 @@
+# Example values: a fictional person. Used by tests, the fidelity harness and "Load example values".
+full_name: Asha Verma
+headline: Senior Frontend Engineer | Technical Lead | React.js • Next.js • Node.js • TypeScript
+email: asha.verma@example.com
+phone: +91 98765 43210
+github_url: https://github.com/asha-verma-example
+linkedin_url: https://www.linkedin.com/in/asha-verma-example
+summary: Senior Frontend Engineer and Technical Lead with 10 years of experience designing and scaling production web applications in React.js, Next.js, Node.js, and TypeScript across Media, AdTech, E-commerce, and Telecom. Owns frontend architecture end-to-end — leading engineering teams of 5-6 through sprint execution, code quality gates, and technical roadmap planning. Delivered measurable performance gains (up to 30% page-load improvement) and shipped micro-frontend and video-streaming (SSAI/CSAI) systems for products serving millions of monthly users. Strong in stakeholder alignment, cross-functional delivery, and mentoring engineers through code review and sprint leadership.
+skills:
+- category: Languages
+  skill_items: Core JavaScript, TypeScript, HTML5, CSS3
+- category: Frameworks/Libraries
+  skill_items: React.js, Next.js, Node.js, Express.js, Vue.js, Redux, RTK, GraphQL, jQuery, Lodash, Moment.js, Highcharts, Axios
+- category: UI Frameworks
+  skill_items: Bootstrap, Tailwind CSS, Materialize, Ant Design, Quasar
+- category: Architecture
+  skill_items: Micro-frontend Architecture, Microservices, Component-Driven Design, SSR/CSR, System Design
+- category: Video/Streaming
+  skill_items: SSAI, CSAI, VMAP, VAST, DASH, HLS
+- category: Build & DevOps
+  skill_items: Webpack, Gulp, npm, Yarn, Bower, CI/CD (Jenkins), Docker, Containers, Kafka
+- category: Database
+  skill_items: MongoDB, Mongoose, GraphQL
+- category: Leadership & Delivery
+  skill_items: Team Leadership (5-6 engineers), Sprint Planning, Code Review & Mentoring, Agile/Scrum, Stakeholder Management, Technical Roadmap Planning, Architecture Decision-Making
+skills_other: Jira, Stripe Payment Gateway
+experience:
+- title: Frontend Architect
+  company: Northwind Digital
+  start: Aug 2024
+  end: Present
+  bullets:
+  - Architected and shipped a telecom client's flagship device landing page using React.js within a micro-frontend architecture, lifting page-load performance ~30% for millions of monthly visitors — directly improving a conversion-critical user touchpoint.
+  - Led a 6-engineer frontend team — owning sprint planning, architecture decisions, and code quality gates — to deliver business-critical features on schedule and aligned with business goals.
+  - Engineered independently deployable micro-frontend components in React.js, establishing reusable patterns for component isolation and shared state management adopted team-wide, cutting cross-team integration friction.
+  - Partnered with backend, UX/UI, and adjacent frontend teams across the client platform to align cross-functional delivery and ship seamless production releases at scale.
+- title: Senior Technical Specialist (Lead Frontend Developer)
+  company: Lumen Consulting
+  start: Jun 2023
+  end: Nov 2023
+  bullets:
+  - Directed frontend architecture and delivery using React.js, Next.js, Node.js, and TypeScript for enterprise web platforms, enforcing code quality through structured peer reviews.
+  - Led Agile sprint planning and task allocation across the frontend team, improving on-time delivery predictability for stakeholder-facing releases.
+  - Served as primary technical liaison between backend, UX/UI, and stakeholder teams, resolving integration blockers that unblocked release timelines.
+  - Drove process improvements that increased team velocity and reduced delivery friction across sprints.
+- title: Senior Software Engineer
+  company: Brightpath Streaming
+  start: Jul 2020
+  end: May 2023
+  bullets:
+  - Led a 5-engineer frontend team as de facto technical lead, owning architecture decisions, sprint execution, and code quality across React.js, TypeScript, Node.js, and GraphQL-based systems.
+  - Built reusable, scalable frontend architecture (React.js, Bootstrap, Materialize) adopted across multiple product teams, standardizing UI patterns and reducing duplicate development effort.
+  - Engineered SSAI and CSAI video advertising solutions for ad playback at scale across the company's streaming products, optimizing performance and cross-platform compatibility for a multi-million-user base.
+  - Partnered directly with product management and executive leadership to define technical roadmaps, balancing technical debt against business priorities to keep production releases on track.
+- title: Senior Software Engineer
+  company: Orbit AdTech
+  start: May 2018
+  end: Jul 2020
+  bullets:
+  - Built and maintained a production advertising SDK using HTML, CSS, ES6, VAST, and Webpack, applying SOLID design principles to power ad delivery across publisher partner sites.
+  - Modernized legacy SDK architecture, improving system performance and reducing long-term maintenance overhead for the platform.
+  - Delivered responsive ad-unit and video player UI (custom playback controls, SASS/HTML5) in partnership with design and backend teams, ensuring consistent performance across devices.
+- title: Software Engineer
+  company: Kestrel Labs
+  start: Aug 2017
+  end: Apr 2018
+  bullets:
+  - Developed frontend features using React, JavaScript, and TypeScript, applying SSR/CSR rendering strategies, code splitting, and lazy loading to cut page load times.
+  - Delivered business-critical features on schedule within an Agile/Scrum workflow using Jira, collaborating directly with backend engineers and designers on integration.
+- title: Front-End Developer
+  company: Pixelcraft Studio
+  start: Dec 2015
+  end: Jul 2017
+  bullets:
+  - Converted PSD designs into standards-compliant, responsive HTML/CSS3 using Bootstrap, translating client feedback into production-ready websites.
+  - Implemented WCAG-accessible, SEO-friendly frontend solutions across browsers and devices, establishing foundational front-end engineering practices early in career.
+achievements:
+- Built Software Development Kits (SDKs) powering digital experiences for two of the largest live-sporting events streamed in the region.
+- Authored two production microservices supporting live-sports coverage on a national streaming platform.
+- Contributed to an Apache open-source data governance project.
+education:
+- degree: Master of Computer Application
+  institution: State University
+  start_year: '2013'
+  end_year: '2016'
+- degree: Bachelor of Computer Science
+  institution: State University
+  start_year: '2010'
+  end_year: '2013'
+domain_expertise: Media and Entertainment, Advertising, E-commerce, Finance and Banking, Education
+languages: English, Hindi, Marathi
+recipient_email: hiring@example.com
+email_subject: Resume — Asha Verma
+email_body: 'Dear Hiring Manager,
+
+
+  Please find my resume attached.
+
+
+  Kind regards,
+
+  Asha Verma'

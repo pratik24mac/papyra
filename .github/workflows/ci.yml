@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-and-build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14          # Apple Silicon runner
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm, cache-dependency-path: apps/desktop/package-lock.json }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: apps/desktop/src-tauri }
+
+      - name: Install LibreOffice (macOS)
+        if: runner.os == 'macOS'
+        run: brew install --cask libreoffice && brew install poppler
+      - name: Install LibreOffice (Windows)
+        if: runner.os == 'Windows'
+        run: choco install libreoffice-fresh --no-progress -y
+
+      - name: Python dependencies
+        run: |
+          python -m venv .venv
+          ${{ runner.os == 'Windows' && '.venv\Scripts\pip' || '.venv/bin/pip' }} install -r tools/requirements.txt pyinstaller
+      - name: Backend tests (incl. offline acceptance and fidelity regression)
+        run: ${{ runner.os == 'Windows' && '.venv\Scripts\pytest' || '.venv/bin/pytest' }} -q tests
+      - name: Lint bundled templates
+        run: ${{ runner.os == 'Windows' && '.venv\Scripts\python' || '.venv/bin/python' }} tools/lint_templates.py
+
+      - name: Frontend dependencies
+        working-directory: apps/desktop
+        run: npm ci
+      - name: Frontend unit tests
+        working-directory: apps/desktop
+        run: npx vitest run
+      - name: Rust unit tests
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --lib
+      - name: End-to-end tests (browser mock mode)
+        working-directory: apps/desktop
+        run: npx playwright install --with-deps chromium && npx playwright test
+
+      - name: Build backend (one-dir) and stage resources
+        run: ${{ runner.os == 'Windows' && '.venv\Scripts\python' || '.venv/bin/python' }} tools/build_backend.py
+
+      - name: Build desktop app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS signing + notarisation (optional: unsigned build when absent)
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows Authenticode (optional)
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        with:
+          projectPath: apps/desktop
+          args: --target ${{ matrix.target }} ${{ runner.os == 'macOS' && '--bundles app' || '' }}
+
+      - name: Make DMG (macOS)
+        if: runner.os == 'macOS'
+        run: tools/make_dmg_macos.sh "$(ls -d apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app | head -1)" apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/Papyra_${{ matrix.target }}.dmg
+      - name: Self-test the built app (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          APP=$(ls -d apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app | head -1)
+          DOCMASTER_SELFTEST=1 DOCMASTER_OUTPUT_DIR="$RUNNER_TEMP/out" DOCMASTER_DATA_DIR="$RUNNER_TEMP/data" "$APP/Contents/MacOS/papyra"
+      - name: Self-test the built app (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:DOCMASTER_SELFTEST = "1"; $env:DOCMASTER_OUTPUT_DIR = "$env:RUNNER_TEMP\out"; $env:DOCMASTER_DATA_DIR = "$env:RUNNER_TEMP\data"
+          & "apps\desktop\src-tauri\target\${{ matrix.target }}\release\papyra.exe"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: papyra-${{ matrix.target }}
+          path: |
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
+            apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
+          if-no-files-found: warn

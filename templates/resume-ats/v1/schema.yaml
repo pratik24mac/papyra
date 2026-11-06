@@ -1,0 +1,92 @@
+# Input schema for the "Resume (ATS)" template. Drives the form, validation and
+# placeholder mapping. Field ids are the Jinja variable names used in template.docx.
+template:
+  id: resume-ats
+  version: 1
+  name: Resume (ATS-friendly)
+  description: Single-column, plain-text-friendly resume with summary, skills, experience, achievements and education.
+  file: template.docx
+  output_filename: "{full_name}-Resume-{date}"
+  expected_pages: {min: 1, max: 3}
+  essential_text: [full_name, email]        # must appear in the PDF text for validation
+
+groups:
+  - id: personal
+    label: Personal details
+    fields:
+      - {id: full_name,    label: Full name,        type: text,  required: true,  validation: {max_length: 80}}
+      - {id: headline,     label: Headline,         type: text,  required: true,  validation: {max_length: 160},
+         help: "Shown under the name, e.g. 'Senior Frontend Engineer | Technical Lead'"}
+      - {id: email,        label: Email,            type: email, required: true}
+      - {id: phone,        label: Phone,            type: text,  required: true,  validation: {max_length: 30}}
+      - {id: github_url,   label: GitHub URL,       type: url,   required: false, help: "Rendered as a link; label is the URL without https://"}
+      - {id: linkedin_url, label: LinkedIn URL,     type: url,   required: false}
+
+  - id: summary
+    label: Professional summary
+    fields:
+      - {id: summary, label: Summary, type: multiline, required: true, validation: {max_length: 1200}}
+
+  - id: skills
+    label: Technical skills
+    fields:
+      - id: skills
+        label: Skill categories
+        type: group_list
+        required: true
+        validation: {min_items: 1, max_items: 12}
+        item_fields:
+          - {id: category, label: Category, type: text, required: true, validation: {max_length: 40}}
+          - {id: skill_items, label: Items,    type: text, required: true, validation: {max_length: 300}}
+      - {id: skills_other, label: Other (italic line), type: text, required: false, validation: {max_length: 200}}
+
+  - id: experience
+    label: Professional experience
+    fields:
+      - id: experience
+        label: Positions
+        type: group_list
+        required: true
+        validation: {min_items: 1, max_items: 12}
+        item_fields:
+          - {id: title,   label: Job title, type: text, required: true, validation: {max_length: 80}}
+          - {id: company, label: Company,   type: text, required: true, validation: {max_length: 80}}
+          - {id: start,   label: Start,     type: text, required: true, help: "e.g. Aug 2024", validation: {max_length: 20}}
+          - {id: end,     label: End,       type: text, required: true, default: Present, validation: {max_length: 20}}
+          - {id: bullets, label: Highlights, type: text_list, required: true, validation: {min_items: 1, max_items: 8},
+             item: {type: multiline, validation: {max_length: 400}}}
+
+  - id: achievements
+    label: Achievements
+    fields:
+      - {id: achievements, label: Achievements, type: text_list, required: false, validation: {max_items: 8},
+         item: {type: multiline, validation: {max_length: 300}}, help: "Section is omitted when empty"}
+
+  - id: education
+    label: Education
+    fields:
+      - id: education
+        label: Degrees
+        type: group_list
+        required: true
+        validation: {min_items: 1, max_items: 6}
+        item_fields:
+          - {id: degree,      label: Degree,      type: text, required: true}
+          - {id: institution, label: Institution, type: text, required: true}
+          - {id: start_year,  label: Start year,  type: text, required: true, validation: {pattern: "^[0-9]{4}$"}}
+          - {id: end_year,    label: End year,    type: text, required: true, validation: {pattern: "^[0-9]{4}$|^Present$"}}
+
+  - id: other
+    label: Other
+    fields:
+      - {id: domain_expertise, label: Domain expertise, type: text, required: false, help: "Section is omitted when empty"}
+      - {id: languages,        label: Languages,        type: text, required: false, help: "Section is omitted when empty"}
+
+  - id: email_draft
+    label: Email draft
+    print: false            # not rendered into the document; used by the email step
+    fields:
+      - {id: recipient_email, label: Recipient,     type: email,     required: true}
+      - {id: email_subject,   label: Subject,       type: text,      required: true, default: "Resume — {full_name}"}
+      - {id: email_body,      label: Message,       type: multiline, required: true,
+         default: "Dear Hiring Manager,\n\nPlease find my resume attached.\n\nKind regards,\n{full_name}"}
