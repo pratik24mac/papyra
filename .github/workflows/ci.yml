@@ -51,6 +51,9 @@ jobs:
       - name: Frontend unit tests
         working-directory: apps/desktop
         run: npx vitest run
+      - name: Frontend build (tauri codegen needs ../dist before cargo test)
+        working-directory: apps/desktop
+        run: npm run build
       - name: Build backend (one-dir) and stage resources (needed by the Tauri build script before cargo test)
         run: ${{ runner.os == 'Windows' && '.venv\Scripts\python' || '.venv/bin/python' }} tools/build_backend.py
 
