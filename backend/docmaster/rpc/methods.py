@@ -94,7 +94,7 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         stem = filename_from_pattern(meta.get("output_filename", "{date}-" + template_id), values)
         docx_path = unique_path(out_dir, stem, ".docx")
         ctx.progress(job_id=job_id, stage="rendering_docx", message="Generating Word document")
-        render_docx(tpl.docx, tpl.schema, values, docx_path)
+        render_docx(tpl.docx, tpl.schema, values, docx_path, default_date_format=settings.all().get("date_format"))
         d = Document(docx_path); set_document_properties(d, f"{meta['name']} — {stem}", subject=meta["name"]); d.save(docx_path)
         rec = JobRecord.new(job_id, template_id, tpl.version, docx_path, meta.get("expected_pages")); current_jobs().save(rec)
         if settings.all().get("keep_history", True): history.record_job(job_id, template_id, tpl.version, "docx_done", settings.output_dir(), docx_path)
@@ -146,7 +146,9 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
                 "pdf_sha256": rec.pdf_sha256, "pdf_seconds": round(seconds, 2)}
 
     def settings_get(ctx):
-        return settings.all()
+        from ..docgen.dates import PRESETS, format_date
+        return settings.all() | {"date_format_presets": [{"format": p, "example": format_date("2026-03-12", p)} for p in PRESETS],
+                                 "date_format_example": format_date("2026-03-12", settings.all().get("date_format") or "D MMMM YYYY")}
 
     def settings_set(ctx, key: str, value=None):
         return settings.set(key, value)

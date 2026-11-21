@@ -91,3 +91,47 @@ def has_comments(doc: _Document) -> bool:
 def clone_paragraph_after(paragraph: Paragraph) -> Paragraph:
     el = copy.deepcopy(paragraph._p); paragraph._p.addnext(el)
     return Paragraph(el, paragraph._parent)
+
+
+def _paragraph_is_blank(p) -> bool:
+    """No text, no drawings/pictures, no fields; a page break alone still counts as blank."""
+    if "".join(t.text or "" for t in p.iter(qn("w:t"))).strip():
+        return False
+    for tag in ("w:drawing", "w:pict", "w:fldChar", "w:instrText", "w:sym", "w:object"):
+        if next(p.iter(qn(tag)), None) is not None:
+            return False
+    return True
+
+
+def trim_trailing_blank(doc: _Document) -> int:
+    """Remove empty paragraphs (and explicit page breaks) at the very end of the body: the usual
+    cause of an unwanted last page. If the body ends with a table, Word requires one paragraph
+    after it, so that one is kept but shrunk to 1 pt with no spacing. Returns the number of changes."""
+    body = doc.element.body
+    children = [c for c in body if c.tag != qn("w:sectPr")]
+    changes = 0
+    while children and children[-1].tag == qn("w:p") and _paragraph_is_blank(children[-1]):
+        if len(children) >= 2 and children[-2].tag == qn("w:tbl"):
+            break
+        body.remove(children.pop()); changes += 1
+    if children and children[-1].tag == qn("w:p") and len(children) >= 2 and children[-2].tag == qn("w:tbl") and _paragraph_is_blank(children[-1]):
+        p = children[-1]
+        for br in p.findall(f".//{qn('w:br')}"):
+            br.getparent().remove(br)
+        ppr = p.find(qn("w:pPr"))
+        if ppr is None:
+            ppr = OxmlElement("w:pPr"); p.insert(0, ppr)
+        for tag in ("w:spacing", "w:rPr"):
+            for el in ppr.findall(qn(tag)): ppr.remove(el)
+        sp = OxmlElement("w:spacing"); sp.set(qn("w:before"), "0"); sp.set(qn("w:after"), "0"); sp.set(qn("w:line"), "20"); sp.set(qn("w:lineRule"), "exact"); ppr.append(sp)
+        rpr = OxmlElement("w:rPr"); sz = OxmlElement("w:sz"); sz.set(qn("w:val"), "2"); rpr.append(sz); ppr.append(rpr)
+        changes += 1
+    if children and children[-1].tag == qn("w:tbl"):
+        p = OxmlElement("w:p"); ppr = OxmlElement("w:pPr")
+        sp = OxmlElement("w:spacing"); sp.set(qn("w:before"), "0"); sp.set(qn("w:after"), "0"); sp.set(qn("w:line"), "20"); sp.set(qn("w:lineRule"), "exact"); ppr.append(sp)
+        rpr = OxmlElement("w:rPr"); sz = OxmlElement("w:sz"); sz.set(qn("w:val"), "2"); rpr.append(sz); ppr.append(rpr); p.append(ppr)
+        sect = body.find(qn("w:sectPr"))
+        if sect is not None: sect.addprevious(p)
+        else: body.append(p)
+        changes += 1
+    return changes

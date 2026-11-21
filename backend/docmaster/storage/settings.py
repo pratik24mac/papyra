@@ -14,13 +14,13 @@ class SettingInvalid(DocMasterError):
     code, rpc_code, user_message = "SETTING_INVALID", -32060, "That setting value is not allowed."
 
 
-KNOWN = {"output_dir": str, "imap_account": dict, "offline_mode": bool, "keep_history": bool}
+KNOWN = {"output_dir": str, "imap_account": dict, "offline_mode": bool, "keep_history": bool, "date_format": str}
 
 
 class Settings:
     def __init__(self, data_dir: Path, default_output_dir: Path):
         self.path = data_dir / "settings.json"
-        self.defaults = {"output_dir": str(default_output_dir), "imap_account": None, "offline_mode": True, "keep_history": True}
+        self.defaults = {"output_dir": str(default_output_dir), "imap_account": None, "offline_mode": True, "keep_history": True, "date_format": "D MMMM YYYY"}
         self._lock = threading.Lock()
         self._data: dict = {}
         self._load()
@@ -58,6 +58,10 @@ class Settings:
             value = ImapAccount.from_dict(value).public() | {"drafts_folder": value.get("drafts_folder") or None}
         if not isinstance(value, KNOWN[key]):
             raise SettingInvalid(f"'{key}' must be a {KNOWN[key].__name__}", data={"key": key})
+        if key == "date_format":
+            from ..docgen.dates import check_format
+            try: check_format(value)
+            except Exception as e: raise SettingInvalid(f"date format not usable: {e}", data={"key": key})  # noqa: BLE001
         if key == "output_dir":
             p = Path(os.path.expanduser(value))
             if not p.is_absolute():

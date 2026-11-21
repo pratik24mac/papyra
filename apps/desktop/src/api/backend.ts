@@ -26,7 +26,7 @@ export interface BackendApi {
   imapSaveAccount(account: ImapAccountInput, password: string): Promise<ImapAccountInfo>;
   imapRemoveAccount(): Promise<ImapAccountInfo>;
   settingsGet(): Promise<AppSettings>;
-  settingsSet(key: "output_dir" | "offline_mode" | "keep_history", value: string | boolean | null): Promise<AppSettings>;
+  settingsSet(key: "output_dir" | "offline_mode" | "keep_history" | "date_format", value: string | boolean | null): Promise<AppSettings>;
   historyList(limit?: number): Promise<{ jobs: HistoryRow[]; total: number }>;
   historyDelete(jobId: string, deleteFiles: boolean): Promise<{ removed_row: boolean; removed_files: boolean }>;
   historyClear(deleteFiles: boolean): Promise<{ removed_rows: number; removed_job_folders: number }>;
@@ -109,7 +109,11 @@ async function mockApi(): Promise<BackendApi> {
   let outputDir = "/Users/you/Documents/Papyra";
   let imapAccount: ImapAccountInput | null = null;
   let offline = true, keepHistory = true;   // offline by default, like the real backend
-  const settingsObj = (): AppSettings => ({ output_dir: outputDir, offline_mode: offline, keep_history: keepHistory, defaults: { output_dir: "/Users/you/Documents/Papyra" }, settings_file: "/mock/settings.json" });
+  let dateFormat = "D MMMM YYYY";
+  const presets = [["D MMMM YYYY", "12 March 2026"], ["DD/MM/YYYY", "12/03/2026"], ["MM/DD/YYYY", "03/12/2026"], ["YYYY-MM-DD", "2026-03-12"], ["MMMM D, YYYY", "March 12, 2026"], ["Do MMMM YYYY", "12th March 2026"], ["DD-MMM-YYYY", "12-Mar-2026"], ["dddd, D MMMM YYYY", "Thursday, 12 March 2026"]];
+  const settingsObj = (): AppSettings => ({ output_dir: outputDir, offline_mode: offline, keep_history: keepHistory, date_format: dateFormat,
+    date_format_example: presets.find((p) => p[0] === dateFormat)?.[1] ?? "12 March 2026", date_format_presets: presets.map(([format, example]) => ({ format, example })),
+    defaults: { output_dir: "/Users/you/Documents/Papyra" }, settings_file: "/mock/settings.json" });
   const historyRows: HistoryRow[] = [];
   let stale = false;   // the mock toggles staleness: window.__mockStale = true simulates an external edit
   return {
@@ -123,7 +127,7 @@ async function mockApi(): Promise<BackendApi> {
     imapSaveAccount: async (account, password) => { await sleep(600); if (password !== "secret-pw") throw rpcError("EMAIL_AUTH_FAILED", "The mail server rejected the username or password."); imapAccount = account; return { configured: true, has_password: true, email: account.email, host: account.host, port: account.port, username: account.email, drafts_folder: "Drafts" }; },
     imapRemoveAccount: async () => { imapAccount = null; return { configured: false }; },
     settingsGet: async () => settingsObj(),
-    settingsSet: async (k, v) => { if (k === "output_dir") outputDir = (v as string | null) ?? "/Users/you/Documents/Papyra"; if (k === "offline_mode") offline = Boolean(v); if (k === "keep_history") keepHistory = Boolean(v); return settingsObj(); },
+    settingsSet: async (k, v) => { if (k === "output_dir") outputDir = (v as string | null) ?? "/Users/you/Documents/Papyra"; if (k === "offline_mode") offline = Boolean(v); if (k === "keep_history") keepHistory = Boolean(v); if (k === "date_format") dateFormat = String(v); return settingsObj(); },
     historyList: async () => ({ jobs: [...historyRows].reverse(), total: historyRows.length }),
     historyDelete: async (job_id, delete_files) => { const i = historyRows.findIndex((r) => r.job_id === job_id); if (i >= 0) historyRows.splice(i, 1); return { removed_row: i >= 0, removed_files: delete_files }; },
     historyClear: async (delete_files) => { const n = historyRows.length; historyRows.length = 0; return { removed_rows: n, removed_job_folders: delete_files ? n : 0 }; },

@@ -335,3 +335,15 @@ missing LibreOffice or a broken engine shows a blocking "Setup required" screen 
 fix text, Get LibreOffice button, Check again, Open diagnostics). The Rust supervisor now keeps the
 engine's last stderr line and, on exit code 3 or a FATAL line, reports it as the failure reason at
 once instead of restarting three times. e2e: setup gate test.
+
+## 2026-11-22 — Document quality: dates, images, last page
+* `docgen/dates.py`: portable token formats (D, DD, Do, M…MMMM, YY, YYYY, ddd, dddd; `%` switches
+  to strftime). Precedence field `format` → template `date_format` → setting `date_format`
+  (Settings → Dates, presets + custom, validated) → `D MMMM YYYY`. Jinja filter `date` for
+  per-tag formats; dates inside group_list items formatted too.
+* PDF export now passes JSON filter options: lossless images, no downsampling, quality 100,
+  tagged PDF, bookmarks. Test checks a 2400×1200 image survives at full size without DCT.
+* `ooxml.trim_trailing_blank`: removes empty paragraphs/page breaks at the end of the body; keeps
+  the mandatory paragraph after a final table but shrinks it to 1 pt; `template.trim_trailing_blank:
+  false` opts out. Applied after every render.
+* Tests: `tests/test_document_quality.py`.

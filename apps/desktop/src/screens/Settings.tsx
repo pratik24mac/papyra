@@ -8,6 +8,7 @@ import { useStore } from "../store";
 import { EmailAccountCard } from "../components/EmailAccountCard";
 import { PrivacyCard } from "../components/PrivacyCard";
 import { SelfCheckCard } from "../components/SelfCheckCard";
+import { DateFormatCard } from "../components/DateFormatCard";
 
 export function Settings() {
   const { state } = useStore();
@@ -62,6 +63,7 @@ export function Settings() {
         </Descriptions>
         <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>Each generated document gets its own sub-folder here. Documents already generated stay where they are.</Typography.Paragraph>
       </Card>
+      <DateFormatCard />
       <EmailAccountCard />
       <PrivacyCard />
     </Space>

@@ -41,6 +41,20 @@ Set labels, `type`, `required`, `help`, `validation` (max_length, pattern, min/m
 `item_fields`, or `text_list` with `item`. Set `output_filename`, `expected_pages` and
 `essential_text` (fields whose values must appear in the PDF).
 
+## 3b. Dates, images and the last page
+* **Dates** are entered with a picker and stored as `YYYY-MM-DD`; the document gets a formatted
+  string. Format precedence: field `format` → template `date_format` → Settings → Dates →
+  default `D MMMM YYYY` (12 March 2026). Tokens: `D` `DD` `Do` day, `M` `MM` `MMM` `MMMM`
+  month, `YY` `YYYY` year, `ddd` `dddd` weekday. Inside the document a single tag can re-format:
+  `{{ joining_date | date("DD/MM/YYYY") }}`.
+* **Images** (logos, watermarks) are exported losslessly at their original resolution; use a
+  PNG at the size you want printed (300 dpi or more for a full-page watermark).
+* **Extra last page**: empty paragraphs and page breaks at the very end of the document are
+  removed automatically (`template.trim_trailing_blank: false` disables this). If the PDF still has
+  one page more than Word shows, LibreOffice is reflowing text, almost always because a font
+  used in the template is not installed on the machine converting it: use a common font or
+  install the missing one.
+
 ## 4. Test-render and check the PDF
 ```bash
 .venv/bin/python tools/lint_templates.py

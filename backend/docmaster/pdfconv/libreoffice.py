@@ -28,6 +28,15 @@ _DEFAULTS = {
 WARM_TIMEOUT = 900.0      # first start on a slow machine: font cache + registry + antivirus scan
 CONVERT_TIMEOUT = 180.0   # a warm profile converts a normal document in seconds
 WARM_MARKER = ".papyra-warm"
+# Full-quality export: images kept lossless at their original resolution (default is JPEG 90 %
+# downsampled to 300 dpi, which blurs watermarks and logos). Filter options as JSON (LibreOffice ≥ 7.4).
+PDF_EXPORT_OPTIONS = {"UseLosslessCompression": {"type": "boolean", "value": "true"},
+                      "ReduceImageResolution": {"type": "boolean", "value": "false"},
+                      "Quality": {"type": "long", "value": "100"},
+                      "UseTaggedPDF": {"type": "boolean", "value": "true"},
+                      "ExportBookmarks": {"type": "boolean", "value": "true"}}
+import json as _json
+PDF_FILTER = "pdf:writer_pdf_Export:" + _json.dumps(PDF_EXPORT_OPTIONS, separators=(",", ":"))
 # Pre-seeded settings: no update check, no first-run wizard, no crash-report dialogs.
 _SEED_XCU = """<?xml version="1.0" encoding="UTF-8"?>
 <oor:items xmlns:oor="http://openoffice.org/2001/registry" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
@@ -150,7 +159,7 @@ def _run(soffice: Path, docx: Path, profile: Path, outdir: Path, timeout: float,
     _seed_profile(profile)
     kill_orphans(profile)
     cmd = [str(soffice), "--headless", "--norestore", "--nologo", "--nolockcheck", "--nodefault",
-           f"-env:UserInstallation={profile.as_uri()}", "--convert-to", "pdf:writer_pdf_Export",
+           f"-env:UserInstallation={profile.as_uri()}", "--convert-to", PDF_FILTER,
            "--outdir", str(outdir), str(docx)]
     env = {**os.environ, "SAL_USE_VCLPLUGIN": "svp"}
     creation = {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)} if sys.platform == "win32" else {}

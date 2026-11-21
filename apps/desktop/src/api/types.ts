@@ -147,6 +147,9 @@ export interface AppSettings {
   output_dir: string;
   offline_mode: boolean;
   keep_history: boolean;
+  date_format: string;
+  date_format_example: string;
+  date_format_presets: { format: string; example: string }[];
   defaults: { output_dir: string };
   settings_file: string;
 }
