@@ -47,6 +47,10 @@ export interface TemplateSummary {
   name: string;
   description: string;
   groups: GroupSchema[];
+  source: "bundled" | "user";
+  dir: string;
+  status: "ok" | "error";
+  problems: string[];
 }
 
 export type Values = Record<string, unknown>;
@@ -181,6 +185,7 @@ export interface ReachabilityResult {
 
 export interface Diagnostics {
   templates_dir: string;
+  user_templates_dir: string;
   templates: number;
   output_dir: string;
   output_dir_writable: boolean;

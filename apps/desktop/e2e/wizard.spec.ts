@@ -77,3 +77,15 @@ test("settings: mailbox connect, output folder, privacy toggles", async ({ page 
   await page.getByRole("button", { name: /Check mail server reachability/ }).click();
   await expect(page.getByText("Mail server reachable", { exact: false })).toBeVisible({ timeout: 10_000 });
 });
+
+test("a broken user template is listed as needs fixing, not hidden", async ({ page }) => {
+  await signIn(page);
+  await page.locator(".tile", { hasText: "New document" }).click();
+  const card = page.locator(".ant-card", { hasText: "Offer letter" });
+  await expect(card.getByText("needs fixing")).toBeVisible();
+  await expect(card.getByText("M001", { exact: false })).toBeVisible();
+  await expect(card.getByRole("button", { name: "Open folder to fix" })).toBeVisible();
+  await expect(card.getByRole("button", { name: "Use this template" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Rescan templates" }).click();
+  await expect(page.locator(".ant-card", { hasText: "Resume (ATS-friendly)" }).getByRole("button", { name: "Use this template" })).toBeVisible();
+});

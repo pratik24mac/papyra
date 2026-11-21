@@ -70,14 +70,14 @@ pub struct Backend {
     pending: Mutex<Pending>,
     next_id: AtomicU64,
     status: Mutex<BackendStatus>,
-    spawn_args: Mutex<Option<(PathBuf, PathBuf, PathBuf)>>,
+    spawn_args: Mutex<Option<(PathBuf, PathBuf, PathBuf, PathBuf)>>,
     restarts: AtomicU32,
     shutting_down: AtomicBool,
     pub notifications: AtomicU64,
 }
 
 /// Methods the WebView is allowed to invoke. `system.shutdown` is deliberately absent.
-pub const ALLOWED_METHODS: &[&str] = &["system.ping", "system.diagnostics", "templates.list", "docgen.generate", "docgen.convert_pdf", "jobs.get", "settings.get", "settings.set",
+pub const ALLOWED_METHODS: &[&str] = &["system.ping", "system.diagnostics", "templates.list", "templates.rescan", "templates.example_values", "docgen.generate", "docgen.convert_pdf", "jobs.get", "settings.get", "settings.set",
     "email.prepare_eml", "email.imap_get_account", "email.imap_test", "email.imap_save_account", "email.imap_remove_account", "email.create_imap_draft",
     "history.list", "history.delete", "history.clear", "privacy.summary", "privacy.clear_logs", "privacy.cleanup", "network.check"];
 
@@ -106,17 +106,17 @@ impl Backend {
     }
 
     /// Start (or restart) the backend process and verify it answers a ping.
-    pub fn start(&self, app: &AppHandle, templates_dir: &Path, output_dir: &Path, data_dir: &Path) -> Result<(), String> {
-        *self.spawn_args.lock().unwrap() = Some((templates_dir.to_path_buf(), output_dir.to_path_buf(), data_dir.to_path_buf()));
+    pub fn start(&self, app: &AppHandle, templates_dir: &Path, output_dir: &Path, data_dir: &Path, user_templates_dir: &Path) -> Result<(), String> {
+        *self.spawn_args.lock().unwrap() = Some((templates_dir.to_path_buf(), output_dir.to_path_buf(), data_dir.to_path_buf(), user_templates_dir.to_path_buf()));
         self.spawn(app)
     }
 
     fn spawn(&self, app: &AppHandle) -> Result<(), String> {
-        let (templates_dir, output_dir, data_dir) = self.spawn_args.lock().unwrap().clone().ok_or("backend not configured")?;
+        let (templates_dir, output_dir, data_dir, user_templates_dir) = self.spawn_args.lock().unwrap().clone().ok_or("backend not configured")?;
         let attempt = self.restarts.load(Ordering::SeqCst);
         self.set_status(app, BackendStatus::Starting { attempt });
         let (mut rx, child) = backend_command(app)?
-            .args(["--templates-dir", &templates_dir.to_string_lossy(), "--output-dir", &output_dir.to_string_lossy(), "--data-dir", &data_dir.to_string_lossy()])
+            .args(["--templates-dir", &templates_dir.to_string_lossy(), "--output-dir", &output_dir.to_string_lossy(), "--data-dir", &data_dir.to_string_lossy(), "--user-templates-dir", &user_templates_dir.to_string_lossy()])
             .spawn()
             .map_err(|e| format!("failed to start backend: {e}"))?;
         *self.child.lock().unwrap() = Some(child);

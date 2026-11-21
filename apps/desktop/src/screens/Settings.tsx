@@ -44,7 +44,8 @@ export function Settings() {
         <Descriptions column={1} bordered size="small">
           <Descriptions.Item label="Document engine">{ping ? <>{ok(true, "Running")} {ping.name} {ping.version} · Python {ping.python} · pid {ping.pid}</> : <Tag>unknown</Tag>}</Descriptions.Item>
           <Descriptions.Item label="LibreOffice">{diag ? <>{ok(diag.libreoffice.found, "Found", "Not found")} {diag.libreoffice.version ?? "Install LibreOffice to enable PDF conversion"} <br /><Typography.Text type="secondary">{diag.libreoffice.path}</Typography.Text></> : "—"}</Descriptions.Item>
-          <Descriptions.Item label="Templates">{diag ? <>{ok(diag.templates > 0)} {diag.templates} bundled · {diag.templates_dir}</> : "—"}</Descriptions.Item>
+          <Descriptions.Item label="Templates">{diag ? <>{ok(diag.templates > 0)} {diag.templates} usable · bundled: {diag.templates_dir}</> : "—"}</Descriptions.Item>
+          <Descriptions.Item label="My templates folder">{diag ? <Space>{diag.user_templates_dir}<Button size="small" icon={<FolderOpenOutlined />} onClick={async () => (await backend()).openTemplatesDir()}>Open</Button></Space> : "—"}</Descriptions.Item>
           <Descriptions.Item label="Output folder">{diag ? <>{ok(diag.output_dir_writable, "Writable", "Not writable")} {diag.output_dir}</> : "—"}</Descriptions.Item>
           <Descriptions.Item label="Platform">{diag?.platform ?? "—"}</Descriptions.Item>
         </Descriptions>

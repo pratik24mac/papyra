@@ -3,6 +3,7 @@ import { defaultValues, expandDefault, parseServerError, rulesFor, countRequired
 import type { FieldSchema, TemplateSummary } from "../api/types";
 
 const tpl: TemplateSummary = {
+  source: "bundled", dir: "/t", status: "ok", problems: [],
   id: "t", version: 1, name: "T", description: "",
   groups: [{ id: "g", label: "G", fields: [
     { id: "name", label: "Name", type: "text", required: true, validation: { max_length: 5 } },

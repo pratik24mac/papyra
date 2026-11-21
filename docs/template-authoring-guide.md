@@ -51,8 +51,17 @@ Compare the PDF with the original. When it is right, copy the PDF to
 `templates/employment-contract/v1/reference.pdf`: the regression suite then guards it.
 
 ## 5. Use it in the app
-The catalogue picks up every `templates/<id>/v<n>/schema.yaml` automatically; restart the app and
-the template appears on the template screen. Bump `v2` when you change a template later.
+Two places are scanned, and both work the same way (`<id>/v<n>/schema.yaml`):
+
+| Where | Who uses it | How it appears |
+|-------|-------------|----------------|
+| `templates/` in the source tree | developers; bundled into the installer by the build | in dev runs and in every installed copy |
+| **My templates folder**: `~/Documents/Papyra/templates` (shown in Settings → Diagnostics, with an Open button) | anyone with the installed app, no rebuild | immediately: click **Rescan templates** on the template screen, or just switch back to the app |
+
+Copy the whole `<id>/v1/` folder into the templates folder. A template with a mistake does not
+disappear: it is listed as **needs fixing** with the linter's findings, and "Open folder to fix"
+takes you to it. A user template may not reuse a bundled template's id. Bump `v2` when you change
+a template later; older documents keep pointing at the version they were made with.
 
 ## Sharing structure without content
 ```bash

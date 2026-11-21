@@ -12,6 +12,8 @@ export interface BackendApi {
   ping(): Promise<PingResult>;
   diagnostics(): Promise<Diagnostics>;
   listTemplates(): Promise<TemplateSummary[]>;
+  rescanTemplates(): Promise<TemplateSummary[]>;
+  openTemplatesDir(): Promise<string>;
   generate(templateId: string, values: Values, jobId: string): Promise<GenerateResult>;
   exampleValues(templateId: string): Promise<Values>;
   status(): Promise<BackendStatus>;
@@ -57,7 +59,9 @@ async function tauriApi(): Promise<BackendApi> {
     diagnostics: () => call<Diagnostics>("system.diagnostics"),
     listTemplates: async () => (await call<{ templates: TemplateSummary[] }>("templates.list")).templates,
     generate: (template_id, values, job_id) => call<GenerateResult>("docgen.generate", { template_id, values, job_id }),
-    exampleValues: (templateId) => invoke<Values>("example_values", { templateId }),
+    rescanTemplates: async () => (await call<{ templates: TemplateSummary[] }>("templates.rescan")).templates,
+    openTemplatesDir: () => invoke<string>("open_templates_dir"),
+    exampleValues: async (template_id) => (await call<{ values: Values }>("templates.example_values", { template_id })).values,
     status: () => invoke<BackendStatus>("backend_status"),
     prepareEml: (job_id, message) => call<EmlResult>("email.prepare_eml", { job_id, message }),
     createImapDraft: (job_id, message) => call<ImapDraftResult>("email.create_imap_draft", { job_id, message }),
@@ -145,9 +149,11 @@ async function mockApi(): Promise<BackendApi> {
     revealFolder: async () => alert("(mock) would reveal the output folder"),
     saveCopy: async (_j, kind) => `/Users/you/Desktop/copy.${kind}`,
     ping: async () => ({ name: "docmaster-backend (mock)", version: "0.0.0", pid: 0, python: "n/a", frozen: false }),
-    diagnostics: async () => ({ templates_dir: "/mock/templates", templates: templates.length, output_dir: "~/Documents/Papyra", output_dir_writable: true,
+    diagnostics: async () => ({ templates_dir: "/mock/templates", user_templates_dir: "/Users/you/Documents/Papyra/templates", templates: templates.length, output_dir: "~/Documents/Papyra", output_dir_writable: true,
       libreoffice: { found: true, path: "/Applications/LibreOffice.app (mock)", version: "LibreOffice (mock)" }, platform: navigator.platform, python: "mock" }),
     listTemplates: async () => templates,
+    rescanTemplates: async () => templates,
+    openTemplatesDir: async () => "/Users/you/Documents/Papyra/templates",
     exampleValues: async () => example,
     status: async () => ({ state: "ready", version: "mock", pid: 0, frozen: false }),
     onProgress: async (cb) => { progressListeners.add(cb); return () => progressListeners.delete(cb); },

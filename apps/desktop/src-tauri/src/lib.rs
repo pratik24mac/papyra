@@ -66,6 +66,22 @@ fn templates_dir(app: &AppHandle) -> PathBuf {
     app.path().resource_dir().map(|r| r.join("resources").join("templates")).unwrap_or_default()
 }
 
+/// User-added templates: a folder the user can edit, next to the generated documents.
+pub(crate) fn user_templates_dir(app: &AppHandle) -> PathBuf {
+    std::env::var("DOCMASTER_USER_TEMPLATES_DIR").map(PathBuf::from).unwrap_or_else(|_| output_dir(app).join("templates"))
+}
+
+/// Reveal the user templates folder in the file manager (created by the backend on start).
+#[tauri::command]
+async fn open_templates_dir(app: AppHandle) -> Result<String, RpcError> {
+    auth::require_auth(&app)?;
+    use tauri_plugin_opener::OpenerExt;
+    let dir = user_templates_dir(&app);
+    let _ = std::fs::create_dir_all(&dir);
+    app.opener().open_path(dir.to_string_lossy(), None::<&str>).map_err(|e| RpcError { code: -32040, message: e.to_string(), data: json!({ "code": "OPEN_FAILED" }) })?;
+    Ok(dir.to_string_lossy().to_string())
+}
+
 pub(crate) fn output_dir(app: &AppHandle) -> PathBuf {
     std::env::var("DOCMASTER_OUTPUT_DIR").map(PathBuf::from).unwrap_or_else(|_| {
         app.path().document_dir().unwrap_or_else(|_| std::env::temp_dir()).join("Papyra")
@@ -187,7 +203,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(Backend::new())
         .manage(auth::Auth::new())
-        .invoke_handler(tauri::generate_handler![backend_call, backend_status, example_values, choose_output_dir, open_data_dir, auth::login, auth::logout, auth::auth_status, files::read_job_pdf, files::open_job_file, files::reveal_job_folder, files::save_job_copy, files::open_job_in_browser])
+        .invoke_handler(tauri::generate_handler![backend_call, backend_status, example_values, choose_output_dir, open_data_dir, open_templates_dir, auth::login, auth::logout, auth::auth_status, files::read_job_pdf, files::open_job_file, files::reveal_job_folder, files::save_job_copy, files::open_job_in_browser])
         .setup(|app| {
             let handle = app.handle().clone();
             let templates = templates_dir(&handle);
@@ -195,7 +211,8 @@ pub fn run() {
             let data = std::env::var("DOCMASTER_DATA_DIR").map(PathBuf::from)
                 .unwrap_or_else(|_| handle.path().app_data_dir().unwrap_or_else(|_| std::env::temp_dir().join("papyra")));
             eprintln!("[app] templates: {} | default output: {} | data: {}", templates.display(), output.display(), data.display());
-            app.state::<Backend>().start(&handle, &templates, &output, &data)?;
+            let user_templates = user_templates_dir(&handle);
+            app.state::<Backend>().start(&handle, &templates, &output, &data, &user_templates)?;
             if std::env::var("DOCMASTER_SELFTEST").is_ok() {
                 tauri::async_runtime::spawn(async move {
                     let code = selftest(handle.clone(), templates).await;

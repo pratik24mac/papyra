@@ -26,8 +26,11 @@ from ..templates.catalogue import Catalogue
 
 
 def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str | None = None, data_dir: Path | None = None,
-                  credentials: CredentialStore | None = None, imap_factory=None) -> dict:
-    catalogue = Catalogue(templates_dir)
+                  credentials: CredentialStore | None = None, imap_factory=None, user_templates_dir: Path | None = None) -> dict:
+    user_templates_dir = user_templates_dir or output_dir / "templates"
+    try: Catalogue.ensure_user_root(user_templates_dir)
+    except OSError: pass
+    catalogue = Catalogue(templates_dir, user_templates_dir)
     settings = Settings(data_dir or output_dir.parent / ".papyra", output_dir)
     jobs = JobStore(settings.output_dir())            # re-pointed on every call via current_jobs()
     creds = credentials or CredentialStore()
@@ -59,7 +62,7 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         writable = True
         try: ensure_dir(settings.output_dir())
         except Exception: writable = False  # noqa: BLE001
-        return {"templates_dir": str(templates_dir), "templates": len(catalogue.list()),
+        return {"templates_dir": str(templates_dir), "user_templates_dir": str(user_templates_dir), "templates": len([t for t in catalogue.list() if t["status"] == "ok"]),
                 "output_dir": str(settings.output_dir()), "output_dir_writable": writable, "data_dir": str(settings.path.parent),
                 "libreoffice": {"found": soffice is not None, "path": str(soffice) if soffice else None,
                                 "version": soffice_version(soffice) if soffice else None,
@@ -67,7 +70,14 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
                 "platform": platform.platform(), "python": platform.python_version()}
 
     def templates_list(ctx):
-        return {"templates": catalogue.list()}
+        return {"templates": catalogue.list(), "user_templates_dir": str(user_templates_dir)}
+
+    def templates_rescan(ctx):
+        changed = catalogue.reload(force=True)
+        return {"changed": changed, "templates": catalogue.list(rescan=False), "user_templates_dir": str(user_templates_dir)}
+
+    def templates_example_values(ctx, template_id: str):
+        return {"values": catalogue.example_values(template_id)}
 
     def docgen_generate(ctx, template_id: str, values: dict, job_id: str | None = None):
         job_id = job_id or uuid.uuid4().hex
@@ -261,5 +271,5 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
             "email.prepare_eml": email_prepare_eml, "email.imap_get_account": email_imap_get_account,
             "email.imap_test": email_imap_test, "email.imap_save_account": email_imap_save_account,
             "email.imap_remove_account": email_imap_remove_account, "email.create_imap_draft": email_create_imap_draft, "system.shutdown": system_shutdown, "system.diagnostics": system_diagnostics,
-            "templates.list": templates_list, "docgen.generate": docgen_generate,
+            "templates.list": templates_list, "templates.rescan": templates_rescan, "templates.example_values": templates_example_values, "docgen.generate": docgen_generate,
             "docgen.convert_pdf": docgen_convert_pdf, "jobs.get": jobs_get}

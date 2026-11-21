@@ -296,3 +296,15 @@ a failed attempt rebuilds the profile and retries once; partial output folders a
 failure; diagnostics report `profile_warm`; the progress message explains a slow first start; the
 Rust call timeout for `docgen.*` is 1200 s. Troubleshooting documents the Defender exclusion.
 Tests: `tests/test_pdfconv.py` (warm-up, reuse, seeded settings, rebuild-on-failure, timeouts).
+
+## 2026-11-21 — Templates added by folder, in the installed app
+* Catalogue scans two roots: bundled (`resources/templates`) and the user folder
+  `<output-dir default>/templates` (`--user-templates-dir`; created on start with a README).
+* Rescan on every listing (cheap signature of schema/docx mtimes) + `templates.rescan`; the template
+  screen rescans on window focus and has Rescan / "My templates folder" buttons.
+* Lint on load: a template with a broken schema, missing file or linter error is listed with
+  `status: error` and its problems ("needs fixing" card with "Open folder to fix"); a user template
+  reusing a bundled id is reported, never silently overriding. Highest version wins per id.
+* `templates.example_values` serves `values.example.yaml` from the template's own folder (replaces
+  the Rust dev helper, which only knew the bundled v1 path).
+* Tests: `tests/test_user_templates.py`. Guide updated (section 5).

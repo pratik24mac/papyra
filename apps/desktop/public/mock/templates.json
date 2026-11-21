@@ -296,7 +296,7 @@
       "label": "Subject",
       "type": "text",
       "required": true,
-      "default": "Resume — {full_name}"
+      "default": "Resume \u2014 {full_name}"
      },
      {
       "id": "email_body",
@@ -307,6 +307,23 @@
      }
     ]
    }
+  ],
+  "source": "bundled",
+  "dir": "/mock/templates/resume-ats/v1",
+  "status": "ok",
+  "problems": []
+ },
+ {
+  "id": "offer-letter",
+  "version": 1,
+  "name": "Offer letter",
+  "description": "User template with a mistake, shown for the error card.",
+  "groups": [],
+  "source": "user",
+  "dir": "/Users/you/Documents/Papyra/templates/offer-letter/v1",
+  "status": "error",
+  "problems": [
+   "[error] M001 word/document.xml: template uses 'employee_nam' which is not a schema field"
   ]
  }
 ]

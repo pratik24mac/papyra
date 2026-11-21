@@ -9,6 +9,7 @@ def main(argv=None) -> int:
     ap.add_argument("--templates-dir", required=True, type=Path)
     ap.add_argument("--output-dir", required=True, type=Path, help="default output folder (overridden by the saved setting)")
     ap.add_argument("--data-dir", type=Path, default=None, help="where settings.json lives")
+    ap.add_argument("--user-templates-dir", type=Path, default=None, help="user-added templates (default: <output-dir>/templates)")
     ap.add_argument("--soffice", default=os.environ.get("DOCMASTER_SOFFICE"))
     ap.add_argument("--log-level", default=os.environ.get("DOCMASTER_LOG_LEVEL", "INFO"))
     args = ap.parse_args(argv)
@@ -21,7 +22,8 @@ def main(argv=None) -> int:
     sys.stdin.reconfigure(encoding="utf-8")
     from .rpc.methods import build_methods
     from .rpc.server import Server
-    Server(build_methods(args.templates_dir.resolve(), args.output_dir.resolve(), args.soffice, args.data_dir.resolve() if args.data_dir else None)).serve_forever()
+    Server(build_methods(args.templates_dir.resolve(), args.output_dir.resolve(), args.soffice, args.data_dir.resolve() if args.data_dir else None,
+                               user_templates_dir=args.user_templates_dir.resolve() if args.user_templates_dir else None)).serve_forever()
     return 0
 
 

@@ -90,11 +90,14 @@ def test_catalogue_lists_bundled_templates():
     assert t.version == 1 and t.docx.exists() and t.summary()["name"] == "Resume (ATS-friendly)"
 
 
-def test_catalogue_rejects_inconsistent_folder(tmp_path):
+def test_catalogue_reports_inconsistent_folder_instead_of_hiding_it(tmp_path):
     d = tmp_path / "foo" / "v1"; d.mkdir(parents=True)
     (d / "schema.yaml").write_text("template: {id: bar, version: 1, file: t.docx}\ngroups: []\n")
+    cat = Catalogue(tmp_path)
+    [t] = cat.list()
+    assert t["id"] == "foo" and t["status"] == "error" and "disagree" in t["problems"][0]
     with pytest.raises(TemplateInvalid):
-        Catalogue(tmp_path)
+        cat.get("foo")
 
 
 def test_validate_extended_field_types():
