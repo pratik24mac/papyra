@@ -368,3 +368,10 @@ accepts only strict ISO strings (anything else renders empty rather than an inva
 error boundary (app-wide and per screen) shows the error with Copy details instead of a blank
 window. All document forms and inputs have `autocomplete="off"` (sign-in keeps it for password
 managers). e2e: `e2e/date.spec.ts` (typing, calendar click, review round trip, bad default, autocomplete).
+
+## 2026-11-22 — SVG watermarks, grayscale / black-and-white, background removal
+`pdfconv/watermark_image.py`: SVG rasterised through LibreOffice (`draw_png_Export` with
+PixelWidth/PixelHeight, aspect from the viewBox) at `raster_width` px, then Pillow processing:
+`grayscale`, `black_white` (threshold), `remove_background` (near-white → transparent with a soft
+ramp). Results cached by source hash + options in `<data>/watermark-cache`. Schema keys documented;
+`tools/prepare_watermark.py` previews the processed PNG. Linter accepts png/jpg/jpeg/svg only.

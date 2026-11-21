@@ -22,7 +22,14 @@ from pypdf import PdfReader, PdfWriter
 from pypdf.generic import ArrayObject, DictionaryObject, FloatObject, NameObject, NumberObject, StreamObject
 from ..errors import PdfConversionFailed
 
-DEFAULTS = {"opacity": 0.15, "scale": 0.6, "rotation": 0.0, "position": "center", "pages": "all"}
+DEFAULTS = {"opacity": 0.15, "scale": 0.6, "rotation": 0.0, "position": "center", "pages": "all",
+            "grayscale": False, "black_white": False, "remove_background": True, "raster_width": 3000}
+CACHE_DIR: Path | None = None       # set by the methods layer (data dir); None → next to the image
+
+
+def configure(cache_dir: Path | None) -> None:
+    global CACHE_DIR
+    CACHE_DIR = cache_dir
 
 
 def config_from_schema(schema: dict, template_dir: Path) -> dict | None:
@@ -36,6 +43,8 @@ def config_from_schema(schema: dict, template_dir: Path) -> dict | None:
         raise PdfConversionFailed(f"watermark image not found: {merged['image'].name}", data={"image": str(merged["image"])})
     merged["opacity"] = min(1.0, max(0.0, float(merged["opacity"]))); merged["scale"] = min(1.0, max(0.05, float(merged["scale"])))
     merged["rotation"] = float(merged["rotation"]); merged["position"] = str(merged["position"]); merged["pages"] = str(merged["pages"])
+    for k in ("grayscale", "black_white", "remove_background"): merged[k] = bool(merged[k])
+    merged["raster_width"] = max(200, min(8000, int(merged["raster_width"])))
     return merged
 
 
@@ -63,7 +72,10 @@ def _image_xobject(rgb: bytes, w: int, h: int) -> StreamObject:
 
 
 def apply_watermark(pdf_path: Path, cfg: dict) -> Path:
-    rgb, iw, ih = _washed_rgb(cfg["image"], cfg["opacity"])
+    from .watermark_image import prepare
+    cache = CACHE_DIR or cfg["image"].parent / ".papyra-cache"
+    image = prepare(cfg["image"], cache, cfg["grayscale"], cfg["black_white"], cfg["remove_background"], cfg["raster_width"])
+    rgb, iw, ih = _washed_rgb(image, cfg["opacity"])
     reader = PdfReader(pdf_path); writer = PdfWriter()
     xobject = None
     for index, page in enumerate(reader.pages):

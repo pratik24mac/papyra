@@ -58,6 +58,8 @@ def lint_template(docx: Path, schema: dict) -> list[Finding]:
             f.append(Finding("S006", "error", "template.watermark needs an 'image' file name", "schema.yaml"))
         elif not (docx.parent / wm["image"]).exists():
             f.append(Finding("S006", "error", f"watermark image '{wm['image']}' is not in the template folder", "schema.yaml"))
+        elif Path(wm["image"]).suffix.lower() not in (".png", ".jpg", ".jpeg", ".svg"):
+            f.append(Finding("S006", "error", f"watermark image must be PNG, JPEG or SVG, not '{Path(wm['image']).suffix}'", "schema.yaml"))
     if not schema.get("template", {}).get("output_filename"):
         f.append(Finding("S005", "warning", "template.output_filename not set; a generic name will be used", "schema.yaml"))
 

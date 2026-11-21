@@ -80,3 +80,52 @@ def test_linter_requires_the_watermark_image(tmp_path):
     d = tmp_path / "t"; shutil.copytree(TPL, d, ignore=shutil.ignore_patterns("samples", "reference.pdf")); make_png(d / "wm.png")
     schema["template"]["watermark"] = {"image": "wm.png"}
     assert "S006" not in {f.code for f in lint_template(d / "template.docx", schema)}
+
+
+SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">
+<rect width="400" height="200" fill="#ffffff"/><circle cx="100" cy="100" r="70" fill="#e63946"/></svg>"""
+
+
+def test_process_image_grayscale_black_white_and_background(tmp_path):
+    from PIL import Image
+    from docmaster.pdfconv.watermark_image import process_image
+    src = tmp_path / "c.png"; im = Image.new("RGB", (40, 40), "white"); [im.putpixel((x, y), (230, 57, 70)) for x in range(10, 30) for y in range(10, 30)]; im.save(src)
+    g = Image.open(process_image(src, tmp_path / "g.png", grayscale=True))
+    assert g.getpixel((2, 2))[3] == 0 and g.getpixel((20, 20))[:3] == (110, 110, 110) and g.getpixel((20, 20))[3] == 255
+    b = Image.open(process_image(src, tmp_path / "b.png", black_white=True))
+    assert b.getpixel((20, 20)) == (0, 0, 0, 255) and b.getpixel((2, 2))[3] == 0
+    k = Image.open(process_image(src, tmp_path / "k.png", remove_background=False))
+    assert k.getpixel((2, 2)) == (255, 255, 255, 255) and k.getpixel((20, 20))[:3] == (230, 57, 70)
+
+
+@pytest.mark.skipif(sys.platform == "win32" and False, reason="")
+def test_svg_watermark_is_rasterised_cached_and_stamped(tmp_path):
+    from pypdf import PdfReader
+    from docmaster.pdfconv.libreoffice import find_soffice
+    if find_soffice() is None: pytest.skip("LibreOffice not installed")
+    from docmaster.pdfconv import watermark as wm
+    from docmaster.pdfconv.watermark_image import prepare
+    (tmp_path / "logo.svg").write_text(SVG)
+    cache = tmp_path / "cache"
+    png = prepare(tmp_path / "logo.svg", cache, grayscale=True, raster_width=1200)
+    from PIL import Image
+    im = Image.open(png); assert im.size == (1200, 600) and im.getpixel((5, 5))[3] == 0
+    assert prepare(tmp_path / "logo.svg", cache, grayscale=True, raster_width=1200) == png and len(list(cache.glob("wm-*.png"))) == 2   # cached (raw + processed)
+    pdf = tmp_path / "doc.pdf"; shutil.copy(PDF, pdf)
+    wm.configure(cache)
+    cfg = config_from_schema({"template": {"watermark": {"image": "logo.svg", "grayscale": True, "raster_width": 1200, "scale": 0.5}}}, tmp_path)
+    assert cfg["grayscale"] and cfg["remove_background"] and cfg["raster_width"] == 1200
+    apply_watermark(pdf, cfg); wm.configure(None)
+    page = PdfReader(pdf).pages[0]
+    img = next(x.get_object() for x in page["/Resources"]["/XObject"].values() if x.get_object().get("/Subtype") == "/Image")
+    assert int(img["/Width"]) == 1200 and int(img["/Height"]) == 600
+
+
+def test_linter_accepts_svg_and_rejects_other_formats(tmp_path):
+    schema = yaml.safe_load((TPL / "schema.yaml").read_text())
+    d = tmp_path / "t"; shutil.copytree(TPL, d, ignore=shutil.ignore_patterns("samples", "reference.pdf"))
+    (d / "logo.svg").write_text(SVG); (d / "logo.bmp").write_bytes(b"BM")
+    schema["template"]["watermark"] = {"image": "logo.svg"}
+    assert "S006" not in {f.code for f in lint_template(d / "template.docx", schema)}
+    schema["template"]["watermark"] = {"image": "logo.bmp"}
+    assert "S006" in {f.code for f in lint_template(d / "template.docx", schema)}

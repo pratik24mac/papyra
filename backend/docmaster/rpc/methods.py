@@ -21,6 +21,7 @@ from ..errors import PdfConversionFailed, PdfInvalid
 from docx import Document
 from ..pdfconv import libreoffice
 from ..pdfconv.libreoffice import convert_to_pdf, find_soffice, soffice_version, validate_pdf
+from ..pdfconv import watermark as watermark_mod
 from ..pdfconv.watermark import apply_watermark, config_from_schema
 from ..storage.paths import ensure_dir, filename_from_pattern, unique_path
 from ..templates.catalogue import Catalogue
@@ -38,6 +39,7 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
     history = History(settings.path.parent)
     # persistent LibreOffice profile: first-start cost once per installation, warmed in the background
     libreoffice.configure(settings.path.parent / "lo-profile")
+    watermark_mod.configure(settings.path.parent / "watermark-cache")
     if os.environ.get("DOCMASTER_WARMUP", "1") != "0" and find_soffice(soffice_override):
         libreoffice.warm_profile_async(find_soffice(soffice_override))
     log = logging.getLogger("docmaster.methods")

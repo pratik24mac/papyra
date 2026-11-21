@@ -54,7 +54,11 @@ Set labels, `type`, `required`, `help`, `validation` (max_length, pattern, min/m
   ```yaml
   template:
     watermark:
-      image: watermark.png   # PNG (transparency kept) or JPEG; use the full-resolution original
+      image: logo.svg        # SVG (best: rendered at any size), PNG (transparency kept) or JPEG
+      grayscale: true        # drop colour (false keeps the original colours)
+      black_white: false     # true: pure black and white instead of shades of gray
+      remove_background: true  # white / near-white areas become transparent (default true)
+      raster_width: 3000     # SVG only: pixels across; 3000 ≈ 300 dpi on an A4 page
       opacity: 0.15          # washout strength, 0..1 (Word's default is about 0.3)
       scale: 0.6             # width as a fraction of the page width
       rotation: 0            # degrees; 30–45 for a diagonal stamp
@@ -63,7 +67,11 @@ Set labels, `type`, `required`, `help`, `validation` (max_length, pattern, min/m
   ```
   Papyra removes any Word watermark shape from the headers and stamps this image behind the
   text of every page in the PDF, losslessly, so it prints as sharp as the source file. Text above
-  it stays searchable.
+  it stays searchable. An SVG is rendered through LibreOffice at `raster_width` pixels and
+  cached. To see exactly what will be stamped before generating:
+  ```bash
+  .venv/bin/python tools/prepare_watermark.py logo.svg preview.png --grayscale
+  ```
 * **Extra last page**: empty paragraphs and page breaks at the very end of the document are
   removed automatically (`template.trim_trailing_blank: false` disables this). If the PDF still has
   one page more than Word shows, LibreOffice is reflowing text, almost always because a font
