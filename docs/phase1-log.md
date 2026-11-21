@@ -328,3 +328,10 @@ module at engine start and refuses to start (exit 3, FATAL line) when one is mis
 exception type and message; `system.selfcheck` (Settings → Diagnostics → Run full check) checks
 modules, LibreOffice, leftover processes and a real test conversion with timings, and returns the
 last 40 log lines; "Copy report" copies it all. Tests: `tests/test_selfcheck.py`.
+
+## 2026-11-21 — Readiness gate
+After sign-in the UI runs `system.selfcheck` without the test conversion; a failing module,
+missing LibreOffice or a broken engine shows a blocking "Setup required" screen (what is missing,
+fix text, Get LibreOffice button, Check again, Open diagnostics). The Rust supervisor now keeps the
+engine's last stderr line and, on exit code 3 or a FATAL line, reports it as the failure reason at
+once instead of restarting three times. e2e: setup gate test.

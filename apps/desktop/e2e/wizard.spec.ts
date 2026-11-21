@@ -5,7 +5,7 @@ async function signIn(page: Page) {
   await page.getByPlaceholder("Username").fill("admin");
   await page.getByPlaceholder("Password").fill("DocMaster!2026");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByText("Good", { exact: false })).toBeVisible();
+  await expect(page.getByText("Engine ready")).toBeVisible();
 }
 
 test("rejects a wrong password and accepts the right one", async ({ page }) => {
@@ -88,4 +88,16 @@ test("a broken user template is listed as needs fixing, not hidden", async ({ pa
   await expect(card.getByRole("button", { name: "Use this template" })).toHaveCount(0);
   await page.getByRole("button", { name: "Rescan templates" }).click();
   await expect(page.locator(".ant-card", { hasText: "Resume (ATS-friendly)" }).getByRole("button", { name: "Use this template" })).toBeVisible();
+});
+
+test("setup gate blocks the app until dependencies are in place", async ({ page }) => {
+  await page.addInitScript(() => { (window as unknown as { __mockSetupMissing: boolean }).__mockSetupMissing = true; });
+  await signIn(page);
+  await expect(page.getByText("Setup required")).toBeVisible();
+  await expect(page.getByText("soffice not found", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Get LibreOffice (free)" })).toBeVisible();
+  await expect(page.locator(".tile", { hasText: "New document" })).toHaveCount(0);
+  await page.evaluate(() => { (window as unknown as { __mockSetupMissing: boolean }).__mockSetupMissing = false; });
+  await page.getByRole("button", { name: "Check again" }).click();
+  await expect(page.locator(".tile", { hasText: "New document" })).toBeVisible();
 });

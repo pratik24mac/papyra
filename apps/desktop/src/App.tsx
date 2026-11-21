@@ -7,6 +7,9 @@ import { DocumentForm } from "./screens/DocumentForm";
 import { Email } from "./screens/Email";
 import { Generate } from "./screens/Generate";
 import { Login } from "./screens/Login";
+import { SetupRequired } from "./screens/SetupRequired";
+import type { SelfCheck } from "./api/types";
+import { useCallback, useEffect, useState } from "react";
 import { Preview } from "./screens/Preview";
 import { Review } from "./screens/Review";
 import { Settings } from "./screens/Settings";
@@ -28,8 +31,18 @@ function Wizard() {
 
 function Shell() {
   const { state, dispatch } = useStore();
+  const [readiness, setReadiness] = useState<SelfCheck | null>(null);
+  const [checking, setChecking] = useState(false);
+  const recheck = useCallback(async () => {
+    setChecking(true);
+    try { setReadiness(await (await backend()).selfCheck(false)); } catch { setReadiness(null); } finally { setChecking(false); }
+  }, []);
+  const engineReady = state.backend.state === "ready";
+  useEffect(() => { if (state.user && engineReady) recheck(); }, [state.user, engineReady, recheck]);
   if (!state.user) return <Login />;
   const signOut = async () => { (await backend()).logout(); dispatch({ type: "signOut" }); };
+  const engineFailure = state.backend.state === "failed" ? state.backend.reason : null;
+  const blocked = engineFailure !== null || (readiness !== null && !readiness.ok);
   return (
     <div>
       <header className="glass topbar">
@@ -44,8 +57,9 @@ function Shell() {
         </div>
       </header>
       <main className="content">
-        {state.view === "dashboard" && <Dashboard />}
-        {state.view === "wizard" && <Wizard />}
+        {blocked && state.view !== "settings" ? <SetupRequired check={readiness} engineFailure={engineFailure} onRecheck={recheck} busy={checking} /> : null}
+        {!(blocked && state.view !== "settings") && state.view === "dashboard" && <Dashboard />}
+        {!(blocked && state.view !== "settings") && state.view === "wizard" && <Wizard />}
         {state.view === "settings" && <Settings />}
       </main>
     </div>

@@ -24,6 +24,12 @@
 2. If SmartScreen appears on an unsigned build: **More info** → **Run anyway**.
 3. Install LibreOffice to `C:\Program Files\LibreOffice` (the default).
 
+## Start-up check
+Every start, after sign-in, Papyra verifies its own packaging, LibreOffice and the templates. If
+anything is missing it shows a **Setup required** screen with what to install and a "Get
+LibreOffice" button; click **Check again** afterwards, no restart needed. Nothing can be
+generated until the check passes.
+
 ## Where Papyra keeps things
 | What | macOS | Windows |
 |------|-------|---------|

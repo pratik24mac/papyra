@@ -11,7 +11,8 @@ export interface BackendApi {
   authStatus(): Promise<string | null>;
   ping(): Promise<PingResult>;
   diagnostics(): Promise<Diagnostics>;
-  selfCheck(): Promise<SelfCheck>;
+  selfCheck(convert?: boolean): Promise<SelfCheck>;
+  openLibreOfficeDownload(): Promise<void>;
   listTemplates(): Promise<TemplateSummary[]>;
   rescanTemplates(): Promise<TemplateSummary[]>;
   openTemplatesDir(): Promise<string>;
@@ -58,7 +59,8 @@ async function tauriApi(): Promise<BackendApi> {
     authStatus: () => invoke<string | null>("auth_status"),
     ping: () => call<PingResult>("system.ping"),
     diagnostics: () => call<Diagnostics>("system.diagnostics"),
-    selfCheck: () => call<SelfCheck>("system.selfcheck", {}),
+    selfCheck: (convert = true) => call<SelfCheck>("system.selfcheck", { convert }),
+    openLibreOfficeDownload: () => invoke<void>("open_libreoffice_download"),
     listTemplates: async () => (await call<{ templates: TemplateSummary[] }>("templates.list")).templates,
     generate: (template_id, values, job_id) => call<GenerateResult>("docgen.generate", { template_id, values, job_id }),
     rescanTemplates: async () => (await call<{ templates: TemplateSummary[] }>("templates.rescan")).templates,
@@ -151,7 +153,14 @@ async function mockApi(): Promise<BackendApi> {
     revealFolder: async () => alert("(mock) would reveal the output folder"),
     saveCopy: async (_j, kind) => `/Users/you/Desktop/copy.${kind}`,
     ping: async () => ({ name: "docmaster-backend (mock)", version: "0.0.0", pid: 0, python: "n/a", frozen: false }),
-    selfCheck: async () => { await sleep(900); return { ok: false, checks: [
+    openLibreOfficeDownload: async () => alert("(mock) would open the LibreOffice download page"),
+    selfCheck: async (convert = true) => {
+      const missing = Boolean((window as unknown as { __mockSetupMissing?: boolean }).__mockSetupMissing);
+      if (!convert) return { ok: !missing, checks: [
+        { check: "module docx", ok: true, detail: "1.2.0" }, { check: "module psutil", ok: true, detail: "7.2.2" },
+        { check: "LibreOffice installed", ok: !missing, detail: missing ? "soffice not found in the standard locations" : "/Applications/LibreOffice.app (mock) · LibreOffice 26.8", fix: missing ? "Install LibreOffice to its default folder, or set DOCMASTER_SOFFICE." : undefined },
+        { check: "LibreOffice profile", ok: true, detail: "/mock/lo-profile · warm" } ], log_path: "/mock/logs/backend.log", log_tail: [] };
+      await sleep(900); return { ok: false, checks: [
         { check: "module docx", ok: true, detail: "1.2.0" }, { check: "module psutil", ok: false, detail: "ModuleNotFoundError: No module named 'psutil'", fix: "The engine was packaged without this dependency. Rebuild it after pip install -r tools/requirements.txt." },
         { check: "LibreOffice installed", ok: true, detail: "/Applications/LibreOffice.app (mock) · LibreOffice 26.8" }, { check: "LibreOffice profile", ok: true, detail: "/mock/lo-profile · warm" },
         { check: "No leftover LibreOffice processes", ok: true, detail: "0 running with the Papyra profile" }, { check: "Test PDF conversion", ok: true, detail: "0.7 s, 1 page, total 0.9 s" } ],

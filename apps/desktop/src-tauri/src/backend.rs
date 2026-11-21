@@ -71,6 +71,7 @@ pub struct Backend {
     next_id: AtomicU64,
     status: Mutex<BackendStatus>,
     spawn_args: Mutex<Option<(PathBuf, PathBuf, PathBuf, PathBuf)>>,
+    last_stderr: Mutex<String>,
     restarts: AtomicU32,
     shutting_down: AtomicBool,
     pub notifications: AtomicU64,
@@ -89,6 +90,7 @@ impl Backend {
             next_id: AtomicU64::new(1),
             status: Mutex::new(BackendStatus::Starting { attempt: 0 }),
             spawn_args: Mutex::new(None),
+            last_stderr: Mutex::new(String::new()),
             restarts: AtomicU32::new(0),
             shutting_down: AtomicBool::new(false),
             notifications: AtomicU64::new(0),
@@ -128,7 +130,11 @@ impl Backend {
                 let backend = reader_app.state::<Backend>();
                 match event {
                     CommandEvent::Stdout(bytes) => backend.handle_line(&reader_app, String::from_utf8_lossy(&bytes).trim()),
-                    CommandEvent::Stderr(bytes) => eprintln!("[backend] {}", String::from_utf8_lossy(&bytes).trim_end()),
+                    CommandEvent::Stderr(bytes) => {
+                        let line = String::from_utf8_lossy(&bytes).trim_end().to_string();
+                        eprintln!("[backend] {line}");
+                        if !line.is_empty() { *backend.last_stderr.lock().unwrap() = line; }
+                    }
                     CommandEvent::Terminated(payload) => {
                         backend.on_terminated(&reader_app, payload.code);
                         break;
@@ -164,9 +170,16 @@ impl Backend {
         if self.shutting_down.load(Ordering::SeqCst) {
             return;
         }
+        let last = self.last_stderr.lock().unwrap().clone();
+        // exit code 3 = the engine refused to start (missing runtime module): restarting cannot help
+        if code == Some(3) || last.starts_with("FATAL") {
+            self.set_status(app, BackendStatus::Failed { reason: if last.is_empty() { "the engine refused to start".into() } else { last } });
+            return;
+        }
         let attempt = self.restarts.fetch_add(1, Ordering::SeqCst) + 1;
         if attempt > MAX_RESTARTS {
-            self.set_status(app, BackendStatus::Failed { reason: format!("backend crashed {MAX_RESTARTS} times (last exit code {code:?})") });
+            let detail = if last.is_empty() { String::new() } else { format!(": {last}") };
+            self.set_status(app, BackendStatus::Failed { reason: format!("backend crashed {MAX_RESTARTS} times (last exit code {code:?}){detail}") });
             return;
         }
         self.set_status(app, BackendStatus::Restarting { attempt, reason: format!("exit code {code:?}") });
