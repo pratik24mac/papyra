@@ -7,6 +7,7 @@ import { describeError } from "../lib/errors";
 import { useStore } from "../store";
 import { EmailAccountCard } from "../components/EmailAccountCard";
 import { PrivacyCard } from "../components/PrivacyCard";
+import { SelfCheckCard } from "../components/SelfCheckCard";
 
 export function Settings() {
   const { state } = useStore();
@@ -49,6 +50,7 @@ export function Settings() {
           <Descriptions.Item label="Output folder">{diag ? <>{ok(diag.output_dir_writable, "Writable", "Not writable")} {diag.output_dir}</> : "—"}</Descriptions.Item>
           <Descriptions.Item label="Platform">{diag?.platform ?? "—"}</Descriptions.Item>
         </Descriptions>
+        <div style={{ marginTop: 16 }}><SelfCheckCard /></div>
       </Card>
       <Card className="glass" title="Output folder" extra={<Space>
           <Button icon={<FolderOpenOutlined />} loading={folderBusy} onClick={() => changeFolder()}>Choose folder…</Button>

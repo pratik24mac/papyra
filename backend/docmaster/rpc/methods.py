@@ -69,6 +69,10 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
                                 "profile_warm": libreoffice.profile_is_warm(), "profile_dir": str(settings.path.parent / "lo-profile")},
                 "platform": platform.platform(), "python": platform.python_version()}
 
+    def system_selfcheck(ctx, convert: bool = True):
+        from ..selfcheck import run as selfcheck_run
+        return selfcheck_run(soffice_override, settings.path.parent, convert=convert)
+
     def templates_list(ctx):
         return {"templates": catalogue.list(), "user_templates_dir": str(user_templates_dir)}
 
@@ -271,5 +275,5 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
             "email.prepare_eml": email_prepare_eml, "email.imap_get_account": email_imap_get_account,
             "email.imap_test": email_imap_test, "email.imap_save_account": email_imap_save_account,
             "email.imap_remove_account": email_imap_remove_account, "email.create_imap_draft": email_create_imap_draft, "system.shutdown": system_shutdown, "system.diagnostics": system_diagnostics,
-            "templates.list": templates_list, "templates.rescan": templates_rescan, "templates.example_values": templates_example_values, "docgen.generate": docgen_generate,
+            "system.selfcheck": system_selfcheck, "templates.list": templates_list, "templates.rescan": templates_rescan, "templates.example_values": templates_example_values, "docgen.generate": docgen_generate,
             "docgen.convert_pdf": docgen_convert_pdf, "jobs.get": jobs_get}

@@ -1,7 +1,7 @@
 // The only way the UI reaches the backend. Inside Tauri it goes WebView → Rust `backend_call` →
 // Python; in a plain browser (vite dev without Tauri) a mock serves static data so screens can be
 // developed and screenshot-tested without the sidecar.
-import type { AppSettings, BackendStatus, HistoryRow, PrivacySummary, ReachabilityResult, ConvertResult, DraftMessage, EmlResult, ImapAccountInfo, ImapAccountInput, ImapDraftResult, Diagnostics, FileKind, GenerateResult, JobInfo, PingResult, ProgressEvent, RpcError, TemplateSummary, Values } from "./types";
+import type { AppSettings, BackendStatus, SelfCheck, HistoryRow, PrivacySummary, ReachabilityResult, ConvertResult, DraftMessage, EmlResult, ImapAccountInfo, ImapAccountInput, ImapDraftResult, Diagnostics, FileKind, GenerateResult, JobInfo, PingResult, ProgressEvent, RpcError, TemplateSummary, Values } from "./types";
 
 type Unlisten = () => void;
 
@@ -11,6 +11,7 @@ export interface BackendApi {
   authStatus(): Promise<string | null>;
   ping(): Promise<PingResult>;
   diagnostics(): Promise<Diagnostics>;
+  selfCheck(): Promise<SelfCheck>;
   listTemplates(): Promise<TemplateSummary[]>;
   rescanTemplates(): Promise<TemplateSummary[]>;
   openTemplatesDir(): Promise<string>;
@@ -57,6 +58,7 @@ async function tauriApi(): Promise<BackendApi> {
     authStatus: () => invoke<string | null>("auth_status"),
     ping: () => call<PingResult>("system.ping"),
     diagnostics: () => call<Diagnostics>("system.diagnostics"),
+    selfCheck: () => call<SelfCheck>("system.selfcheck", {}),
     listTemplates: async () => (await call<{ templates: TemplateSummary[] }>("templates.list")).templates,
     generate: (template_id, values, job_id) => call<GenerateResult>("docgen.generate", { template_id, values, job_id }),
     rescanTemplates: async () => (await call<{ templates: TemplateSummary[] }>("templates.rescan")).templates,
@@ -149,6 +151,11 @@ async function mockApi(): Promise<BackendApi> {
     revealFolder: async () => alert("(mock) would reveal the output folder"),
     saveCopy: async (_j, kind) => `/Users/you/Desktop/copy.${kind}`,
     ping: async () => ({ name: "docmaster-backend (mock)", version: "0.0.0", pid: 0, python: "n/a", frozen: false }),
+    selfCheck: async () => { await sleep(900); return { ok: false, checks: [
+        { check: "module docx", ok: true, detail: "1.2.0" }, { check: "module psutil", ok: false, detail: "ModuleNotFoundError: No module named 'psutil'", fix: "The engine was packaged without this dependency. Rebuild it after pip install -r tools/requirements.txt." },
+        { check: "LibreOffice installed", ok: true, detail: "/Applications/LibreOffice.app (mock) · LibreOffice 26.8" }, { check: "LibreOffice profile", ok: true, detail: "/mock/lo-profile · warm" },
+        { check: "No leftover LibreOffice processes", ok: true, detail: "0 running with the Papyra profile" }, { check: "Test PDF conversion", ok: true, detail: "0.7 s, 1 page, total 0.9 s" } ],
+      log_path: "/mock/logs/backend.log", log_tail: ["2026-11-21 23:13:39,824 INFO docmaster.rpc: rpc server ready", "2026-11-21 23:14:45,018 ERROR docmaster.rpc: docgen.generate crashed", "ModuleNotFoundError: No module named 'psutil'"] }; },
     diagnostics: async () => ({ templates_dir: "/mock/templates", user_templates_dir: "/Users/you/Documents/Papyra/templates", templates: templates.length, output_dir: "~/Documents/Papyra", output_dir_writable: true,
       libreoffice: { found: true, path: "/Applications/LibreOffice.app (mock)", version: "LibreOffice (mock)" }, platform: navigator.platform, python: "mock" }),
     listTemplates: async () => templates,

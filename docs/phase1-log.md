@@ -319,3 +319,12 @@ Fix (`pdfconv/libreoffice.py`, psutil): kill any process using our profile befor
 it; kill the whole process tree on timeout; stall detection (no CPU activity and no output for
 75 s → "LibreOffice stopped responding", tree killed, profile rebuilt, one retry); successful
 conversions logged with their duration. Tests use a shell-script stand-in for soffice.
+
+## 2026-11-21 — Diagnostics and packaging guard
+The user's own Windows build shipped an engine without `psutil` (stale venv) and crashed on
+the first conversion with a bare "internal error". Now: `selfcheck.py` checks every runtime
+module at engine start and refuses to start (exit 3, FATAL line) when one is missing;
+`tools/build_backend.py` runs the same preflight and refuses to package; RPC crashes carry the
+exception type and message; `system.selfcheck` (Settings → Diagnostics → Run full check) checks
+modules, LibreOffice, leftover processes and a real test conversion with timings, and returns the
+last 40 log lines; "Copy report" copies it all. Tests: `tests/test_selfcheck.py`.

@@ -57,7 +57,9 @@ export function describeError(e: unknown): ErrorView {
       return { title: "File not available", detail: message, action: "The generated files were moved or deleted. Generate the document again." };
     case "BACKEND_UNAVAILABLE":
       return { title: "The document engine is not running", detail: message, action: "Wait for it to restart, or restart the application." };
+    case "INTERNAL_ERROR":
+      return { title: "The document engine hit an internal error", detail: String(data.detail ?? message), action: "Open Settings → Diagnostics → Run full check and use Copy report." };
     default:
-      return { title: "Generation failed", detail: message, action: "Try again. If it keeps failing, check Settings → Diagnostics." };
+      return { title: "Generation failed", detail: message, action: "Try again. If it keeps failing, run the full check in Settings → Diagnostics." };
   }
 }

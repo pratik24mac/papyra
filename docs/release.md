@@ -13,6 +13,15 @@ Tauri's own `--bundles dmg` styles the window through Finder/AppleScript and fai
 interactive session ("AppleEvent timed out"); the script above is the reliable path and is what CI uses.
 Verify the bundle without clicking: `DOCMASTER_SELFTEST=1 Papyra.app/Contents/MacOS/papyra`.
 
+## After every `git pull`
+Re-run the dependency install before building the backend: new runtime modules (for example `psutil`)
+are not picked up by an existing venv, and `tools/build_backend.py` now refuses to package an engine
+that is missing one.
+```bash
+.venv/bin/pip install -r tools/requirements.txt
+```
+(Windows: `.venv\Scripts\pip install -r tools\requirements.txt`)
+
 ## Local build (Windows)
 Same steps in PowerShell with `.venv\Scripts\...`; `npm run tauri build` produces an NSIS
 installer under `bundle\nsis\`. Requires the Visual Studio C++ build tools and WebView2 (preinstalled on Windows 11).

@@ -15,6 +15,12 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     from .logging_ import configure
     configure(args.log_level, args.data_dir.resolve() if args.data_dir else None)
+    from .selfcheck import missing_modules
+    missing = missing_modules()
+    if missing:
+        logging.getLogger("docmaster").error("engine packaged without required modules: %s", ", ".join(missing))
+        print(f"FATAL: engine packaged without required modules: {', '.join(missing)}. Rebuild after: pip install -r tools/requirements.txt", file=sys.stderr)
+        return 3
     from .storage.cleanup import sweep_temp
     logging.getLogger("docmaster").info("startup cleanup: %s", sweep_temp())
     # stdout is the protocol channel: force utf-8 and line buffering regardless of console settings

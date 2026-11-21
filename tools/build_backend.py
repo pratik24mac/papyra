@@ -14,11 +14,23 @@ RES = ROOT / "apps/desktop/src-tauri/resources"
 NAME = "docmaster-backend"
 
 
+def preflight() -> None:
+    """Refuse to package an engine that would crash at runtime: every runtime module must import
+    in the interpreter that runs PyInstaller (a stale venv is the usual cause)."""
+    sys.path.insert(0, str(ROOT / "backend"))
+    from docmaster.selfcheck import missing_modules
+    missing = missing_modules()
+    if missing:
+        sys.exit(f"cannot build: missing runtime modules {missing}. Run: {sys.executable} -m pip install -r tools/requirements.txt")
+    print("preflight: all runtime modules present")
+
+
 def build_backend() -> Path:
+    preflight()
     dist = ROOT / "backend/dist"
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--onedir", "--console", "--name", NAME,
            "--paths", str(ROOT / "backend"), "--collect-data", "docx", "--collect-submodules", "keyring.backends",
-           "--hidden-import", "keyring.backends.macOS", "--hidden-import", "keyring.backends.Windows", "--exclude-module", "PIL", "--exclude-module", "tkinter",
+           "--hidden-import", "keyring.backends.macOS", "--hidden-import", "keyring.backends.Windows", "--hidden-import", "psutil", "--exclude-module", "PIL", "--exclude-module", "tkinter",
            "--specpath", str(ROOT / "backend/pyinstaller"), "--workpath", str(ROOT / "backend/build"),
            "--distpath", str(dist), str(ROOT / "backend/entry.py")]
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

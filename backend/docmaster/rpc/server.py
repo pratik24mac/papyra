@@ -86,6 +86,6 @@ class Server:
             err = e.to_rpc(); return self._error(rid, err["code"], err["message"], err["data"])
         except Exception as e:          # noqa: BLE001
             log.exception("%s crashed", method)
-            return self._error(rid, -32000, "internal error", {"code": "INTERNAL_ERROR", "type": type(e).__name__})
+            return self._error(rid, -32000, f"internal error: {type(e).__name__}: {e}", {"code": "INTERNAL_ERROR", "type": type(e).__name__, "detail": str(e)[:500]})
         if rid is not None:
             self.send({"jsonrpc": "2.0", "id": rid, "result": result})

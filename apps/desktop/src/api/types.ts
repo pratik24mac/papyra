@@ -184,6 +184,13 @@ export interface ReachabilityResult {
   tls: { ok: boolean; protocol?: string; subject?: string; error?: string } | null;
 }
 
+export interface SelfCheck {
+  ok: boolean;
+  checks: { check: string; ok: boolean; detail: string; fix?: string }[];
+  log_path: string | null;
+  log_tail: string[];
+}
+
 export interface Diagnostics {
   templates_dir: string;
   user_templates_dir: string;
