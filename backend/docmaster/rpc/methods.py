@@ -19,6 +19,7 @@ from ..errors import EmailAccountMissing, PdfStale
 from datetime import datetime, timezone
 from ..errors import PdfConversionFailed, PdfInvalid
 from docx import Document
+from ..pdfconv import libreoffice
 from ..pdfconv.libreoffice import convert_to_pdf, find_soffice, soffice_version, validate_pdf
 from ..storage.paths import ensure_dir, filename_from_pattern, unique_path
 from ..templates.catalogue import Catalogue
@@ -31,6 +32,10 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
     jobs = JobStore(settings.output_dir())            # re-pointed on every call via current_jobs()
     creds = credentials or CredentialStore()
     history = History(settings.path.parent)
+    # persistent LibreOffice profile: first-start cost once per installation, warmed in the background
+    libreoffice.configure(settings.path.parent / "lo-profile")
+    if os.environ.get("DOCMASTER_WARMUP", "1") != "0" and find_soffice(soffice_override):
+        libreoffice.warm_profile_async(find_soffice(soffice_override))
     log = logging.getLogger("docmaster.methods")
 
     def sync_offline():
@@ -57,7 +62,8 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         return {"templates_dir": str(templates_dir), "templates": len(catalogue.list()),
                 "output_dir": str(settings.output_dir()), "output_dir_writable": writable, "data_dir": str(settings.path.parent),
                 "libreoffice": {"found": soffice is not None, "path": str(soffice) if soffice else None,
-                                "version": soffice_version(soffice) if soffice else None},
+                                "version": soffice_version(soffice) if soffice else None,
+                                "profile_warm": libreoffice.profile_is_warm(), "profile_dir": str(settings.path.parent / "lo-profile")},
                 "platform": platform.platform(), "python": platform.python_version()}
 
     def templates_list(ctx):
@@ -79,7 +85,8 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         rec = JobRecord.new(job_id, template_id, tpl.version, docx_path, meta.get("expected_pages")); current_jobs().save(rec)
         if settings.all().get("keep_history", True): history.record_job(job_id, template_id, tpl.version, "docx_done", settings.output_dir(), docx_path)
         ctx.progress(job_id=job_id, stage="docx_done", message="Word document created", docx_path=str(docx_path))
-        ctx.progress(job_id=job_id, stage="converting_pdf", message="Converting to PDF")
+        ctx.progress(job_id=job_id, stage="converting_pdf", message="Converting to PDF" if libreoffice.profile_is_warm()
+                     else "Starting LibreOffice for the first time on this computer; this can take a few minutes once")
         try:
             pdf_path, seconds = convert_to_pdf(docx_path, find_soffice(soffice_override))
             pages = validate_pdf(pdf_path, meta.get("expected_pages"),
@@ -108,7 +115,8 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         docx_path = Path(rec.docx_path)
         if not docx_path.exists():
             raise PdfConversionFailed("the Word document no longer exists", data={"job_id": job_id, "docx_path": rec.docx_path})
-        ctx.progress(job_id=job_id, stage="converting_pdf", message="Converting to PDF")
+        ctx.progress(job_id=job_id, stage="converting_pdf", message="Converting to PDF" if libreoffice.profile_is_warm()
+                     else "Starting LibreOffice for the first time on this computer; this can take a few minutes once")
         rec.docx_sha256 = JobRecord.new(job_id, rec.template_id, rec.template_version, docx_path, rec.expected_pages).docx_sha256
         try:
             pdf_path, seconds = convert_to_pdf(docx_path, find_soffice(soffice_override))

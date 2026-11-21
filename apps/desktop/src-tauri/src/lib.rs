@@ -14,7 +14,7 @@ async fn backend_call(app: AppHandle, backend: State<'_, Backend>, method: Strin
     if !ALLOWED_METHODS.contains(&method.as_str()) {
         return Err(RpcError { code: -32601, message: format!("method not allowed from the UI: {method}"), data: json!({ "code": "METHOD_NOT_ALLOWED" }) });
     }
-    let timeout = if method.starts_with("docgen.") { Duration::from_secs(300) } else if method.starts_with("email.") { Duration::from_secs(90) } else { Duration::from_secs(20) };
+    let timeout = if method.starts_with("docgen.") { Duration::from_secs(1200) } else if method.starts_with("email.") { Duration::from_secs(90) } else { Duration::from_secs(20) };
     backend.call(&method, params.unwrap_or_else(|| json!({})), timeout).await
 }
 

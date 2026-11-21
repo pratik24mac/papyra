@@ -284,3 +284,15 @@ draft is the reliable path.
   choco), Vitest, cargo test, Playwright, backend one-dir, Tauri build → `Papyra_0.1.0_x64-setup.exe`
   (17 MB, NSIS) and `Papyra_0.1.0_x64_en-US.msi` (22 MB), self-test of the built app passed,
   artifact uploaded. Not yet installed by a human on a Windows PC.
+
+## 2026-11-21 — LibreOffice timeout on slow Windows PCs
+Cause: a fresh temporary LibreOffice profile per conversion, so every document paid LibreOffice's
+first-start work (font cache, registry, extensions) plus the antivirus scan of its libraries:
+about a second on the Mac, over the 120 s limit on a low-end Windows PC.
+Fix (`pdfconv/libreoffice.py`): persistent private profile in `<data>/lo-profile`, pre-seeded with
+the update check and first-run dialogs disabled; warmed in a background thread at engine start
+(`DOCMASTER_WARMUP=0` disables, used by tests); cold conversion allowed 900 s, warm ones 180 s;
+a failed attempt rebuilds the profile and retries once; partial output folders are removed on
+failure; diagnostics report `profile_warm`; the progress message explains a slow first start; the
+Rust call timeout for `docgen.*` is 1200 s. Troubleshooting documents the Defender exclusion.
+Tests: `tests/test_pdfconv.py` (warm-up, reuse, seeded settings, rebuild-on-failure, timeouts).
