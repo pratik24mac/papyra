@@ -16,6 +16,18 @@ log = logging.getLogger("docmaster.rpc")
 MAX_LINE = 8 * 1024 * 1024
 
 
+def json_default(o):
+    """YAML gives `date`/`datetime` for unquoted dates; paths and sets appear in diagnostics."""
+    import datetime, pathlib
+    if isinstance(o, (datetime.date, datetime.datetime)):
+        return o.isoformat()
+    if isinstance(o, pathlib.PurePath):
+        return str(o)
+    if isinstance(o, (set, frozenset, tuple)):
+        return list(o)
+    raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
+
+
 class Context:
     def __init__(self, server: "Server", request_id):
         self.server, self.request_id = server, request_id
@@ -35,7 +47,7 @@ class Server:
 
     # ---- transport ----
     def send(self, obj: dict) -> None:
-        line = json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
+        line = json.dumps(obj, ensure_ascii=False, separators=(",", ":"), default=json_default)
         with self._wlock:
             self.out.write(line + "\n"); self.out.flush()
 
@@ -88,4 +100,8 @@ class Server:
             log.exception("%s crashed", method)
             return self._error(rid, -32000, f"internal error: {type(e).__name__}: {e}", {"code": "INTERNAL_ERROR", "type": type(e).__name__, "detail": str(e)[:500]})
         if rid is not None:
-            self.send({"jsonrpc": "2.0", "id": rid, "result": result})
+            try:
+                self.send({"jsonrpc": "2.0", "id": rid, "result": result})
+            except (TypeError, ValueError) as e:          # result not serialisable: answer with an error, never silence
+                log.exception("%s produced an unserialisable result", method)
+                self._error(rid, -32000, f"internal error: result not serialisable: {e}", {"code": "INTERNAL_ERROR", "type": type(e).__name__})

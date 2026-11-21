@@ -27,6 +27,20 @@ what to fix. See the authoring guide in the app (Help) or docs/template-authorin
 """
 
 
+def normalise_yaml(obj):
+    """Unquoted dates in YAML become `date` objects; the app wants ISO strings everywhere."""
+    import datetime
+    if isinstance(obj, dict):
+        return {k: normalise_yaml(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [normalise_yaml(v) for v in obj]
+    if isinstance(obj, datetime.datetime):
+        return obj.date().isoformat()
+    if isinstance(obj, datetime.date):
+        return obj.isoformat()
+    return obj
+
+
 @dataclass(frozen=True)
 class Template:
     id: str
@@ -90,7 +104,7 @@ class Catalogue:
         folder_id, folder_version = schema_path.parent.parent.name, int(m.group(1))
         problems: list[str] = []
         try:
-            schema = yaml.safe_load(schema_path.read_text(encoding="utf8")) or {}
+            schema = normalise_yaml(yaml.safe_load(schema_path.read_text(encoding="utf8")) or {})
             if not isinstance(schema, dict) or "template" not in schema:
                 raise ValueError("schema.yaml must have a top-level 'template' section")
             tid = str(schema["template"].get("id", folder_id)); version = int(schema["template"].get("version", folder_version))
@@ -155,7 +169,7 @@ class Catalogue:
         for name in ("values.example.yaml", "values.example.json"):
             p = t.dir / name
             if p.exists():
-                return yaml.safe_load(p.read_text(encoding="utf8")) or {}
+                return normalise_yaml(yaml.safe_load(p.read_text(encoding="utf8")) or {})
         return {}
 
     @staticmethod

@@ -3,6 +3,8 @@
 import { Button, Card, Checkbox, DatePicker, Form, Input, InputNumber, Select, Space, Typography } from "antd";
 import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+dayjs.extend(customParseFormat);
 import type { FieldSchema } from "../api/types";
 import { emptyItem, rulesFor, type NamePath } from "../lib/schema";
 
@@ -12,14 +14,14 @@ const { TextArea } = Input;
 function Control({ f, ...rest }: { f: FieldSchema } & Record<string, unknown>) {
   const v = f.validation ?? {};
   switch (f.type) {
-    case "multiline": return <TextArea autoSize={{ minRows: 3, maxRows: 10 }} maxLength={v.max_length} showCount={!!v.max_length} {...rest} />;
-    case "number": return <InputNumber style={{ width: "100%" }} min={v.min} max={v.max} {...rest} />;
+    case "multiline": return <TextArea autoComplete="off" autoSize={{ minRows: 3, maxRows: 10 }} maxLength={v.max_length} showCount={!!v.max_length} {...rest} />;
+    case "number": return <InputNumber autoComplete="off" style={{ width: "100%" }} min={v.min} max={v.max} {...rest} />;
     case "select": return <Select allowClear={!f.required} options={(f.options ?? []).map((o) => (typeof o === "string" ? { value: o, label: o } : o))} {...rest} />;
     case "checkbox": return <Checkbox {...rest}>{f.help ?? f.label}</Checkbox>;
-    case "date": return <DatePicker style={{ width: "100%" }} format="YYYY-MM-DD" {...rest} />;
-    case "email": return <Input type="email" maxLength={v.max_length} {...rest} />;
-    case "url": return <Input placeholder="https://…" maxLength={v.max_length} {...rest} />;
-    default: return <Input maxLength={v.max_length} {...rest} />;
+    case "date": return <DatePicker style={{ width: "100%" }} format="YYYY-MM-DD" autoComplete="off" {...rest} />;
+    case "email": return <Input autoComplete="off" type="email" maxLength={v.max_length} {...rest} />;
+    case "url": return <Input autoComplete="off" placeholder="https://…" maxLength={v.max_length} {...rest} />;
+    default: return <Input autoComplete="off" maxLength={v.max_length} {...rest} />;
   }
 }
 
@@ -80,7 +82,9 @@ export function FieldRenderer({ f, prefix = [] }: { f: FieldSchema; prefix?: Nam
   const extra: Record<string, unknown> = {};
   if (f.type === "checkbox") extra.valuePropName = "checked";
   if (f.type === "date") {
-    extra.getValueProps = (v: unknown) => ({ value: v ? dayjs(String(v)) : null });
+    // only a real ISO date becomes a dayjs value; anything else (a typo in an example file, an
+    // object) renders as empty instead of crashing the picker
+    extra.getValueProps = (v: unknown) => { const d = typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? dayjs(v, "YYYY-MM-DD", true) : null; return { value: d && d.isValid() ? d : null }; };
     extra.normalize = (v: dayjs.Dayjs | null) => (v ? v.format("YYYY-MM-DD") : undefined);
   }
   return (

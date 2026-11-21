@@ -95,3 +95,35 @@ def test_listing_reports_whether_examples_exist(tmp_path):
     (d / "values.example.yaml").unlink()
     assert next(t for t in cat.list() if t["id"] == "nda")["has_examples"] is False
     assert cat.example_values("nda") == {}
+
+
+def test_unquoted_yaml_dates_become_iso_strings(tmp_path):
+    """`joining_date: 2026-03-12` (no quotes) is a date object in YAML; it must reach the app as a string
+    both in example values and in schema defaults, and never break the RPC response."""
+    import json
+    from docmaster.rpc.server import json_default
+    user = tmp_path / "u"; d = copy_template(user, "dated")
+    (d / "values.example.yaml").write_text((d / "values.example.yaml").read_text() + "\njoining_date: 2026-03-12\n")
+    schema = yaml.safe_load((d / "schema.yaml").read_text())
+    schema["groups"][0]["fields"].append({"id": "joining_date", "label": "Joining", "type": "date", "default": "2026-01-02"})
+    text = yaml.safe_dump(schema, sort_keys=False, allow_unicode=True).replace("default: '2026-01-02'", "default: 2026-01-02")
+    (d / "schema.yaml").write_text(text)
+    cat = Catalogue(BUNDLED, user, lint=False)
+    ex = cat.example_values("dated")
+    assert ex["joining_date"] == "2026-03-12" and isinstance(ex["joining_date"], str)
+    field = next(f for f in cat.get("dated").schema["groups"][0]["fields"] if f["id"] == "joining_date")
+    assert field["default"] == "2026-01-02" and isinstance(field["default"], str)
+    json.dumps(cat.list())                                               # whole listing serialisable
+    import datetime
+    assert json.dumps({"d": datetime.date(2026, 3, 12)}, default=json_default) == '{"d": "2026-03-12"}'
+
+
+def test_unserialisable_result_is_answered_with_an_error():
+    from docmaster.rpc.server import Server
+    sent = []
+    class S(Server):
+        def __init__(self): self.methods = {"weird": lambda ctx: {"x": object()}}
+        def send(self, msg):
+            import json; json.dumps(msg); sent.append(msg)   # mimic the real encoder strictness
+    S()._handle({"id": 7, "method": "weird", "params": {}})
+    assert sent and sent[-1]["error"]["data"]["code"] == "INTERNAL_ERROR" and "not serialisable" in sent[-1]["error"]["message"]

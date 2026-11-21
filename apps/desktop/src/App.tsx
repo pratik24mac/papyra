@@ -8,6 +8,7 @@ import { Email } from "./screens/Email";
 import { Generate } from "./screens/Generate";
 import { Login } from "./screens/Login";
 import { SetupRequired } from "./screens/SetupRequired";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import type { SelfCheck } from "./api/types";
 import { useCallback, useEffect, useState } from "react";
 import { Preview } from "./screens/Preview";
@@ -57,10 +58,12 @@ function Shell() {
         </div>
       </header>
       <main className="content">
+        <ErrorBoundary key={state.view} onReset={() => dispatch({ type: "navigate", view: "dashboard" })}>
         {blocked && state.view !== "settings" ? <SetupRequired check={readiness} engineFailure={engineFailure} onRecheck={recheck} busy={checking} /> : null}
         {!(blocked && state.view !== "settings") && state.view === "dashboard" && <Dashboard />}
         {!(blocked && state.view !== "settings") && state.view === "wizard" && <Wizard />}
         {state.view === "settings" && <Settings />}
+        </ErrorBoundary>
       </main>
     </div>
   );

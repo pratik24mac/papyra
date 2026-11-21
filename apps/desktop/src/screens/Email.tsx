@@ -72,7 +72,7 @@ export function Email() {
         </Descriptions>
       </Card>
       <Card className="glass" title="Message">
-        <Form form={form} layout="vertical" requiredMark>
+        <Form form={form} layout="vertical" requiredMark autoComplete="off">
           <Form.Item name="to" label="To" rules={[{ required: true, message: "At least one recipient is required" }]} help="Separate several addresses with commas">
             <Input placeholder="name@example.com" />
           </Form.Item>

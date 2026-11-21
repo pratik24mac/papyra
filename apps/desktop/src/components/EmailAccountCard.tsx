@@ -44,7 +44,7 @@ export function EmailAccountCard() {
           {note && <Alert type={note.type} showIcon message={note.text} />}
         </Space>
       ) : (
-        <Form form={form} layout="vertical" initialValues={{ host: "imap.porkbun.com", port: 993 }} requiredMark>
+        <Form form={form} layout="vertical" initialValues={{ host: "imap.porkbun.com", port: 993 }} requiredMark autoComplete="off">
           <Typography.Paragraph type="secondary">Drafts are saved to your mailbox over IMAP; the app never sends mail. For Porkbun the server is <code>imap.porkbun.com</code>, port 993, and the username is your full email address.</Typography.Paragraph>
           <Form.Item name="email" label="Email address" rules={[{ required: true, type: "email", message: "Enter your email address" }]}><Input placeholder="you@yourdomain.com" /></Form.Item>
           <Space size="large">

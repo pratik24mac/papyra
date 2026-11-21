@@ -357,3 +357,14 @@ once instead of restarting three times. e2e: setup gate test.
   from all headers when a PDF watermark is configured. Applied in generate and re-convert; linter
   S006 checks the image exists. Pillow is now a runtime dependency (was excluded from the bundle).
 * Date presets gained ordinal forms: "March 12th, 2026", "Thursday, March 12th, 2026".
+
+## 2026-11-22 — Date picker freeze / blank screen; autocomplete off
+Cause found: an unquoted date in `values.example.yaml` or a schema `default:` is a Python `date`
+after YAML parsing; the RPC encoder could not serialise it, the response was never sent, and the
+UI waited forever (freeze) or rendered nothing. Fixes: `json_default` in the RPC encoder (dates →
+ISO, paths → str), unserialisable results now answered with an INTERNAL_ERROR instead of silence,
+catalogue normalises YAML dates to ISO strings in schemas and example values; the date control
+accepts only strict ISO strings (anything else renders empty rather than an invalid date); an
+error boundary (app-wide and per screen) shows the error with Copy details instead of a blank
+window. All document forms and inputs have `autocomplete="off"` (sign-in keeps it for password
+managers). e2e: `e2e/date.spec.ts` (typing, calendar click, review round trip, bad default, autocomplete).

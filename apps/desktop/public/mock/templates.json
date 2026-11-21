@@ -55,6 +55,14 @@
       "label": "LinkedIn URL",
       "type": "url",
       "required": false
+     },
+     {
+      "id": "available_from",
+      "label": "Available from",
+      "type": "date",
+      "required": false,
+      "help": "Mock-only date field",
+      "default": "12/03/2026"
      }
     ]
    },
