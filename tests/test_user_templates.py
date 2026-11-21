@@ -86,3 +86,12 @@ def test_methods_expose_rescan_and_example_values(tmp_path):
     copy_template(user, "nda", "NDA")
     r = m["templates.rescan"](Ctx())
     assert [t["id"] for t in r["templates"]] == ["resume-ats", "nda"]
+
+
+def test_listing_reports_whether_examples_exist(tmp_path):
+    user = tmp_path / "u"; d = copy_template(user, "nda")
+    cat = Catalogue(BUNDLED, user)
+    assert {t["id"]: t["has_examples"] for t in cat.list()} == {"resume-ats": True, "nda": True}
+    (d / "values.example.yaml").unlink()
+    assert next(t for t in cat.list() if t["id"] == "nda")["has_examples"] is False
+    assert cat.example_values("nda") == {}

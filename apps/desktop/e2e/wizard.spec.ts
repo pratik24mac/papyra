@@ -26,7 +26,7 @@ test("full wizard: template → form → review → generate → preview → ema
   // validation blocks an empty form
   await page.getByRole("button", { name: "Review details" }).click();
   await expect(page.getByText("Full name is required")).toBeVisible();
-  await page.getByRole("button", { name: "Load example values" }).click();
+  await page.getByRole("button", { name: "Pre-fill with example values" }).first().click();
   await expect(page.getByLabel("Full name")).toHaveValue("Asha Verma");
   await page.getByRole("button", { name: "Review details" }).click();
   await expect(page.getByText("Resume — Asha Verma")).toBeVisible();      // default expanded
@@ -47,7 +47,7 @@ test("stale PDF blocks preview actions until regenerated", async ({ page }) => {
   await signIn(page);
   await page.locator(".tile", { hasText: "New document" }).click();
   await page.getByRole("button", { name: "Use this template" }).click();
-  await page.getByRole("button", { name: "Load example values" }).click();
+  await page.getByRole("button", { name: "Pre-fill with example values" }).first().click();
   await page.getByRole("button", { name: "Review details" }).click();
   await page.getByRole("button", { name: "Generate document" }).click();
   await page.getByRole("button", { name: "Preview PDF" }).click({ timeout: 10_000 });

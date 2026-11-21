@@ -1,9 +1,10 @@
-import { useEffect } from "react";
-import { Alert, Button, Card, Form, Space, Typography } from "antd";
-import { backend, inTauri } from "../api/backend";
+import { useEffect, useState } from "react";
+import { Alert, Button, Card, Form, Modal, Space, Typography, message } from "antd";
+import { ExperimentOutlined } from "@ant-design/icons";
+import { backend } from "../api/backend";
 import { FieldRenderer } from "../components/FieldRenderer";
 import { describeError } from "../lib/errors";
-import { expandDefault, parseServerError } from "../lib/schema";
+import { defaultValues, expandDefault, parseServerError } from "../lib/schema";
 import { useStore } from "../store";
 
 export function DocumentForm() {
@@ -38,16 +39,34 @@ export function DocumentForm() {
     dispatch({ type: "step", step: 2 });
   };
 
-  const loadExample = async () => {
-    const api = await backend();
-    const v = await api.exampleValues(t.id);
-    form.setFieldsValue(v); dispatch({ type: "setValues", values: v });
+  const [prefilling, setPrefilling] = useState(false);
+  // "own input" = anything that differs from the untouched form (defaults, empty lists, unchecked boxes)
+  const hasOwnInput = () => {
+    const blank = defaultValues(t), current = form.getFieldsValue(true);
+    return Object.keys(current).some((id) => JSON.stringify(current[id] ?? null) !== JSON.stringify(blank[id] ?? null));
   };
+  const prefill = async () => {
+    setPrefilling(true);
+    try {
+      const v = await (await backend()).exampleValues(t.id);
+      form.setFieldsValue(v); dispatch({ type: "setValues", values: v });
+      message.success("Form pre-filled with the template's example values");
+    } catch (e) { message.error(describeError(e).detail); } finally { setPrefilling(false); }
+  };
+  const prefillButton = t.has_examples ? (
+    <Button icon={<ExperimentOutlined />} loading={prefilling} onClick={() => hasOwnInput()
+      ? Modal.confirm({ title: "Replace what you typed?", content: "Pre-filling overwrites every field with the template's example values.", okText: "Pre-fill", onOk: prefill })
+      : prefill()}>Pre-fill with example values</Button>
+  ) : null;
 
   return (
     <Form form={form} layout="vertical" initialValues={state.values} onValuesChange={persist} scrollToFirstError requiredMark>
       {serverErrors?.length ? <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="The document engine rejected some values" description="The fields are marked below." /> : null}
       <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+        {prefillButton && <Space style={{ width: "100%", justifyContent: "space-between" }} wrap>
+          <Typography.Text type="secondary">Fill in the details below, or start from the template's example values and edit them.</Typography.Text>
+          {prefillButton}
+        </Space>}
         {t.groups.map((g) => (
           <Card className="glass" key={g.id} title={g.label} id={`group-${g.id}`} extra={g.print === false ? <Typography.Text type="secondary">Used for the email draft, not printed</Typography.Text> : null}>
             {g.fields.map((f) => <FieldRenderer key={f.id} f={f} />)}
@@ -56,7 +75,7 @@ export function DocumentForm() {
         <Space>
           <Button onClick={() => { persist(); dispatch({ type: "step", step: 0 }); }}>Back</Button>
           <Button type="primary" onClick={next}>Review details</Button>
-          {(!inTauri || import.meta.env.DEV) && <Button onClick={loadExample}>Load example values</Button>}
+          {prefillButton}
         </Space>
       </Space>
     </Form>

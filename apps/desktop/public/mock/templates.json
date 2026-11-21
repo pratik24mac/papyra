@@ -311,7 +311,8 @@
   "source": "bundled",
   "dir": "/mock/templates/resume-ats/v1",
   "status": "ok",
-  "problems": []
+  "problems": [],
+  "has_examples": true
  },
  {
   "id": "offer-letter",
@@ -324,6 +325,7 @@
   "status": "error",
   "problems": [
    "[error] M001 word/document.xml: template uses 'employee_nam' which is not a schema field"
-  ]
+  ],
+  "has_examples": false
  }
 ]

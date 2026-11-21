@@ -42,18 +42,6 @@ async fn choose_output_dir(app: AppHandle) -> Result<Option<String>, RpcError> {
     Ok(picked.and_then(|p| p.into_path().ok()).map(|p| p.to_string_lossy().to_string()))
 }
 
-/// Dev helper: the example values shipped with a template, for filling the form quickly.
-#[tauri::command]
-fn example_values(app: AppHandle, template_id: String) -> Result<Value, String> {
-    auth::require_auth(&app).map_err(|e| e.message)?;
-    if !template_id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
-        return Err("invalid template id".into());
-    }
-    let path = templates_dir(&app).join(&template_id).join("v1").join("values.example.json");
-    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    serde_json::from_str(&text).map_err(|e| e.to_string())
-}
-
 fn templates_dir(app: &AppHandle) -> PathBuf {
     if let Ok(p) = std::env::var("DOCMASTER_TEMPLATES_DIR") {
         return PathBuf::from(p);
@@ -203,7 +191,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(Backend::new())
         .manage(auth::Auth::new())
-        .invoke_handler(tauri::generate_handler![backend_call, backend_status, example_values, choose_output_dir, open_data_dir, open_templates_dir, auth::login, auth::logout, auth::auth_status, files::read_job_pdf, files::open_job_file, files::reveal_job_folder, files::save_job_copy, files::open_job_in_browser])
+        .invoke_handler(tauri::generate_handler![backend_call, backend_status, choose_output_dir, open_data_dir, open_templates_dir, auth::login, auth::logout, auth::auth_status, files::read_job_pdf, files::open_job_file, files::reveal_job_folder, files::save_job_copy, files::open_job_in_browser])
         .setup(|app| {
             let handle = app.handle().clone();
             let templates = templates_dir(&handle);

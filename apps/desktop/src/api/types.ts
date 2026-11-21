@@ -51,6 +51,7 @@ export interface TemplateSummary {
   dir: string;
   status: "ok" | "error";
   problems: string[];
+  has_examples: boolean;
 }
 
 export type Values = Record<string, unknown>;
