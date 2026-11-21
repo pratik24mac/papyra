@@ -150,8 +150,13 @@ def render_docx(template_docx: Path, schema: dict, values: dict, out: Path, defa
                 out.unlink(missing_ok=True)
                 raise DocxGenerationFailed(f"unrendered tag left in {name}")
     doc = Document(out)  # must re-open
+    changed = 0
     if meta.get("trim_trailing_blank", True):
         from .ooxml import trim_trailing_blank
-        if trim_trailing_blank(doc):
-            doc.save(out)
+        changed += trim_trailing_blank(doc)
+    if meta.get("watermark"):
+        from .ooxml import strip_word_watermarks
+        changed += strip_word_watermarks(doc)          # the PDF step stamps the configured image instead
+    if changed:
+        doc.save(out)
     return out

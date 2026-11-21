@@ -52,6 +52,12 @@ def lint_template(docx: Path, schema: dict) -> list[Finding]:
                 f.append(Finding("S003", "error", f"field '{sub['id']}' has unknown type '{sub['type']}'", "schema.yaml"))
             if sub["type"] == "select" and not sub.get("options"):
                 f.append(Finding("S004", "error", f"select field '{sub['id']}' has no options", "schema.yaml"))
+    wm = schema.get("template", {}).get("watermark")
+    if wm is not None:
+        if not isinstance(wm, dict) or not wm.get("image"):
+            f.append(Finding("S006", "error", "template.watermark needs an 'image' file name", "schema.yaml"))
+        elif not (docx.parent / wm["image"]).exists():
+            f.append(Finding("S006", "error", f"watermark image '{wm['image']}' is not in the template folder", "schema.yaml"))
     if not schema.get("template", {}).get("output_filename"):
         f.append(Finding("S005", "warning", "template.output_filename not set; a generic name will be used", "schema.yaml"))
 

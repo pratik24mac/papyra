@@ -13,7 +13,7 @@ import re
 from datetime import date
 
 DEFAULT_FORMAT = "D MMMM YYYY"
-PRESETS = ["D MMMM YYYY", "DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD", "MMMM D, YYYY", "Do MMMM YYYY", "DD-MMM-YYYY", "dddd, D MMMM YYYY"]
+PRESETS = ["D MMMM YYYY", "Do MMMM YYYY", "MMMM D, YYYY", "MMMM Do, YYYY", "DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD", "DD-MMM-YYYY", "dddd, D MMMM YYYY", "dddd, MMMM Do, YYYY"]
 _TOKEN = re.compile(r"dddd|ddd|DD|Do|D|MMMM|MMM|MM|M|YYYY|YY")
 
 

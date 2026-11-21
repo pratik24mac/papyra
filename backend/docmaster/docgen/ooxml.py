@@ -135,3 +135,26 @@ def trim_trailing_blank(doc: _Document) -> int:
         else: body.append(p)
         changes += 1
     return changes
+
+
+def strip_word_watermarks(doc: _Document) -> int:
+    """Remove Word's own watermark shapes (text or picture) from every header, so a PDF-level
+    watermark is not doubled. Word names them PowerPlusWaterMarkObject… / WordPictureWatermark…"""
+    removed = 0
+    V = "{urn:schemas-microsoft-com:vml}"; WP = "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}"
+    for section in doc.sections:
+        for hdr in (section.header, section.first_page_header, section.even_page_header):
+            if hdr is None or hdr._element is None:
+                continue
+            for shape in list(hdr._element.iter(f"{V}shape")):
+                ident = (shape.get("id") or "") + (shape.get("{urn:schemas-microsoft-com:office:office}spid") or "")
+                if "watermark" in ident.lower():
+                    run = shape; 
+                    while run is not None and run.tag != qn("w:r"): run = run.getparent()
+                    (run if run is not None else shape).getparent().remove(run if run is not None else shape); removed += 1
+            for docpr in list(hdr._element.iter(f"{WP}docPr")):
+                if "watermark" in (docpr.get("name") or "").lower():
+                    run = docpr
+                    while run is not None and run.tag != qn("w:r"): run = run.getparent()
+                    if run is not None: run.getparent().remove(run); removed += 1
+    return removed

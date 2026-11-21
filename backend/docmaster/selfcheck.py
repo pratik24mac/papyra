@@ -6,7 +6,7 @@ from __future__ import annotations
 import importlib, platform, sys, tempfile, time, shutil
 from pathlib import Path
 
-RUNTIME_MODULES = ("docx", "docxtpl", "lxml", "pypdf", "yaml", "keyring", "psutil", "jinja2")
+RUNTIME_MODULES = ("docx", "docxtpl", "lxml", "pypdf", "yaml", "keyring", "psutil", "jinja2", "PIL")
 
 
 def check_modules() -> list[dict]:

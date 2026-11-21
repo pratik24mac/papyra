@@ -49,6 +49,21 @@ Set labels, `type`, `required`, `help`, `validation` (max_length, pattern, min/m
   `{{ joining_date | date("DD/MM/YYYY") }}`.
 * **Images** (logos, watermarks) are exported losslessly at their original resolution; use a
   PNG at the size you want printed (300 dpi or more for a full-page watermark).
+* **Watermark**: do not rely on Word's own watermark; LibreOffice re-renders it (wrong size,
+  washout lost, blurred). Put the image file in the template folder and declare it in the schema:
+  ```yaml
+  template:
+    watermark:
+      image: watermark.png   # PNG (transparency kept) or JPEG; use the full-resolution original
+      opacity: 0.15          # washout strength, 0..1 (Word's default is about 0.3)
+      scale: 0.6             # width as a fraction of the page width
+      rotation: 0            # degrees; 30–45 for a diagonal stamp
+      position: center       # center | top | bottom
+      pages: all             # all | first
+  ```
+  Papyra removes any Word watermark shape from the headers and stamps this image behind the
+  text of every page in the PDF, losslessly, so it prints as sharp as the source file. Text above
+  it stays searchable.
 * **Extra last page**: empty paragraphs and page breaks at the very end of the document are
   removed automatically (`template.trim_trailing_blank: false` disables this). If the PDF still has
   one page more than Word shows, LibreOffice is reflowing text, almost always because a font

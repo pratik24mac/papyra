@@ -21,6 +21,7 @@ from ..errors import PdfConversionFailed, PdfInvalid
 from docx import Document
 from ..pdfconv import libreoffice
 from ..pdfconv.libreoffice import convert_to_pdf, find_soffice, soffice_version, validate_pdf
+from ..pdfconv.watermark import apply_watermark, config_from_schema
 from ..storage.paths import ensure_dir, filename_from_pattern, unique_path
 from ..templates.catalogue import Catalogue
 
@@ -103,6 +104,8 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
                      else "Starting LibreOffice for the first time on this computer; this can take a few minutes once")
         try:
             pdf_path, seconds = convert_to_pdf(docx_path, find_soffice(soffice_override))
+            wm = config_from_schema(tpl.schema, tpl.dir)
+            if wm: apply_watermark(pdf_path, wm)
             pages = validate_pdf(pdf_path, meta.get("expected_pages"),
                                  [str(values.get(k, "")) for k in meta.get("essential_text", [])])
         except (PdfConversionFailed, PdfInvalid) as e:
@@ -134,6 +137,10 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         rec.docx_sha256 = JobRecord.new(job_id, rec.template_id, rec.template_version, docx_path, rec.expected_pages).docx_sha256
         try:
             pdf_path, seconds = convert_to_pdf(docx_path, find_soffice(soffice_override))
+            try:
+                t = catalogue.get(rec.template_id); wm = config_from_schema(t.schema, t.dir)
+            except Exception: wm = None  # noqa: BLE001  (template no longer available: convert without watermark)
+            if wm: apply_watermark(pdf_path, wm)
             pages = validate_pdf(pdf_path, rec.expected_pages)        # text may legitimately differ after an edit
         except (PdfConversionFailed, PdfInvalid) as e:
             e.data.setdefault("docx_path", str(docx_path)); e.data["job_id"] = job_id

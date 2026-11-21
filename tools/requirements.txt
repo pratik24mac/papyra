@@ -4,7 +4,7 @@ docxtpl==0.20.2
 lxml>=6,<7
 pypdf>=6,<7
 PyYAML>=6,<7
-pillow>=11          # dev only: pixel comparison in the fidelity harness
+pillow>=11          # runtime: PDF watermark stamping; also the fidelity harness
 pytest>=8
 keyring>=25           # OS credential store (macOS Keychain / Windows Credential Manager)
 psutil>=6            # process-tree kill, orphan cleanup and stall detection for LibreOffice

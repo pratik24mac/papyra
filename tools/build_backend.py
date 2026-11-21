@@ -30,7 +30,7 @@ def build_backend() -> Path:
     dist = ROOT / "backend/dist"
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--onedir", "--console", "--name", NAME,
            "--paths", str(ROOT / "backend"), "--collect-data", "docx", "--collect-submodules", "keyring.backends",
-           "--hidden-import", "keyring.backends.macOS", "--hidden-import", "keyring.backends.Windows", "--hidden-import", "psutil", "--exclude-module", "PIL", "--exclude-module", "tkinter",
+           "--hidden-import", "keyring.backends.macOS", "--hidden-import", "keyring.backends.Windows", "--hidden-import", "psutil", "--collect-submodules", "PIL", "--exclude-module", "tkinter",
            "--specpath", str(ROOT / "backend/pyinstaller"), "--workpath", str(ROOT / "backend/build"),
            "--distpath", str(dist), str(ROOT / "backend/entry.py")]
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

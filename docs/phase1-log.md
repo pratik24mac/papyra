@@ -347,3 +347,13 @@ once instead of restarting three times. e2e: setup gate test.
   the mandatory paragraph after a final table but shrinks it to 1 pt; `template.trim_trailing_blank:
   false` opts out. Applied after every render.
 * Tests: `tests/test_document_quality.py`.
+
+## 2026-11-22 — PDF-level watermark; ordinal date presets
+* Lossless export did not fix the user's blurry, resized, darker watermark: LibreOffice re-renders
+  Word's header watermark shape. New `pdfconv/watermark.py`: `template.watermark` (image, opacity,
+  scale, rotation, position, pages) stamps the original image *behind* each page's content as a
+  Flate-compressed XObject at native resolution, washout computed by compositing onto white;
+  `ooxml.strip_word_watermarks` removes Word's PowerPlusWaterMarkObject/WordPictureWatermark shapes
+  from all headers when a PDF watermark is configured. Applied in generate and re-convert; linter
+  S006 checks the image exists. Pillow is now a runtime dependency (was excluded from the bundle).
+* Date presets gained ordinal forms: "March 12th, 2026", "Thursday, March 12th, 2026".
