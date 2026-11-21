@@ -70,3 +70,63 @@ def test_timeout_message_names_the_limit(tmp_path, monkeypatch):
     with pytest.raises(PdfConversionFailed) as e:
         lo.convert_to_pdf(docx, soffice=Path(sys.executable), profile_dir=tmp_path / "p")
     assert f"{lo.WARM_TIMEOUT:.0f} s" in str(e.value) and e.value.data["timeout"] == lo.WARM_TIMEOUT
+
+
+# ---- process hygiene (the Windows hang: an orphaned soffice.bin wedges every later run) ----
+POSIX = sys.platform != "win32"
+
+
+def fake_soffice(tmp_path, body: str) -> Path:
+    exe = tmp_path / "soffice"; exe.write_text("#!/bin/sh\n" + body + "\n"); exe.chmod(0o755)
+    return exe
+
+
+@pytest.mark.skipif(not POSIX, reason="shell-script stand-in for soffice")
+def test_orphan_holding_the_profile_is_killed_before_a_run(tmp_path):
+    import psutil
+    profile = tmp_path / "p"; profile.mkdir()
+    exe = fake_soffice(tmp_path, "sleep 60")
+    orphan = subprocess.Popen([str(exe), f"-env:UserInstallation={profile.as_uri()}"])
+    try:
+        assert psutil.pid_exists(orphan.pid)
+        assert lo.kill_orphans(profile) == 1
+        orphan.wait(timeout=5)
+        assert lo.kill_orphans(profile) == 0
+        assert lo.kill_orphans(tmp_path / "other") == 0          # only processes using *our* profile
+    finally:
+        if orphan.poll() is None: orphan.kill()
+
+
+@pytest.mark.skipif(not POSIX, reason="shell-script stand-in for soffice")
+def test_stalled_libreoffice_is_detected_long_before_the_timeout(tmp_path):
+    exe = fake_soffice(tmp_path, "sleep 300")                     # 0 % CPU, no output: exactly the Windows hang
+    profile = tmp_path / "p"; outdir = tmp_path / "out"; outdir.mkdir()
+    docx = tmp_path / "d.docx"; docx.write_bytes(b"x")
+    import time
+    t0 = time.monotonic()
+    with pytest.raises(lo.LibreOfficeStalled):
+        lo._run(exe, docx, profile, outdir, timeout=120, stall=2)
+    assert time.monotonic() - t0 < 10
+    assert lo._profile_processes(profile) == []                   # nothing left running
+
+
+@pytest.mark.skipif(not POSIX, reason="shell-script stand-in for soffice")
+def test_timeout_kills_the_whole_process_tree(tmp_path):
+    import psutil
+    outdir = tmp_path / "out"; outdir.mkdir()
+    # launcher that spawns a child (like soffice.exe → soffice.bin) and burns CPU so stall detection stays quiet
+    exe = fake_soffice(tmp_path, f"sleep 300 & echo $! > '{outdir}/child.pid'; while :; do :; done")
+    profile = tmp_path / "p"; docx = tmp_path / "d.docx"; docx.write_bytes(b"x")
+    with pytest.raises(subprocess.TimeoutExpired):
+        lo._run(exe, docx, profile, outdir, timeout=2, stall=100)
+    child = int((outdir / "child.pid").read_text())
+    import time; time.sleep(0.5)
+    assert not psutil.pid_exists(child) or psutil.Process(child).status() == psutil.STATUS_ZOMBIE
+
+
+def test_stall_error_is_reported_as_conversion_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr(lo, "_run", lambda *a, **k: (_ for _ in ()).throw(lo.LibreOfficeStalled(75)))
+    docx = tmp_path / "d.docx"; docx.write_bytes(b"x")
+    with pytest.raises(PdfConversionFailed) as e:
+        lo.convert_to_pdf(docx, soffice=Path(sys.executable), profile_dir=tmp_path / "p")
+    assert "stopped responding" in str(e.value) and e.value.data["stalled_after"] == 75

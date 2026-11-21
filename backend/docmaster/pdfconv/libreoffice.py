@@ -78,14 +78,110 @@ def reset_profile(profile_dir: Path | None = None) -> None:
         log.info("LibreOffice profile reset")
 
 
-def _run(soffice: Path, docx: Path, profile: Path, outdir: Path, timeout: float) -> subprocess.CompletedProcess:
+STALL_SECONDS = 75.0      # no CPU activity and no output for this long → LibreOffice is stuck, not slow
+
+
+def _profile_processes(profile: Path):
+    """Every soffice process (launcher or soffice.bin) started with this profile."""
+    import psutil
+    needle = profile.as_uri().lower()
+    out = []
+    for proc in psutil.process_iter(["name", "cmdline"]):
+        try:
+            args = proc.info["cmdline"] or []
+            name = (proc.info["name"] or "").lower()
+            # real: soffice.exe / soffice.bin / soffice; tests: "sh <path>/soffice"
+            if "soffice" not in name and not any("soffice" in Path(a).name.lower() for a in args[:2] if a):
+                continue
+            if any(needle in (a or "").lower() for a in args):
+                out.append(proc)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
+    return out
+
+
+def _kill_all(procs, why: str) -> int:
+    import psutil
+    killed = 0
+    for proc in procs:
+        try:
+            proc.kill(); killed += 1
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    if killed:
+        psutil.wait_procs(procs, timeout=5)
+        log.warning("killed %d LibreOffice process(es): %s", killed, why)
+    return killed
+
+
+def _kill_tree(pid: int, why: str) -> None:
+    import psutil
+    try:
+        root = psutil.Process(pid)
+        _kill_all(root.children(recursive=True) + [root], why)
+    except psutil.NoSuchProcess:
+        pass
+
+
+def kill_orphans(profile: Path | None = None) -> int:
+    """Kill LibreOffice processes left behind with our profile. On Windows the launcher is what a
+    timeout kills, and the real soffice.bin survives, holds the profile and wedges every later run."""
+    p = profile or _profile_dir
+    return _kill_all(_profile_processes(p), "orphan holding the Papyra profile") if p else 0
+
+
+def _tree_cpu(proc) -> float:
+    import psutil
+    total = 0.0
+    try:
+        for q in [proc] + proc.children(recursive=True):
+            try:
+                t = q.cpu_times(); total += t.user + t.system
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+    except psutil.NoSuchProcess:
+        pass
+    return total
+
+
+def _run(soffice: Path, docx: Path, profile: Path, outdir: Path, timeout: float, stall: float = STALL_SECONDS) -> subprocess.CompletedProcess:
+    """Run one conversion with a hard timeout *and* stall detection; always leaves no process behind."""
+    import psutil
     _seed_profile(profile)
+    kill_orphans(profile)
     cmd = [str(soffice), "--headless", "--norestore", "--nologo", "--nolockcheck", "--nodefault",
            f"-env:UserInstallation={profile.as_uri()}", "--convert-to", "pdf:writer_pdf_Export",
            "--outdir", str(outdir), str(docx)]
     env = {**os.environ, "SAL_USE_VCLPLUGIN": "svp"}
     creation = {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)} if sys.platform == "win32" else {}
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env, **creation)
+    popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL, text=True, env=env, **creation)
+    ps = psutil.Process(popen.pid)
+    started = last_progress = time.monotonic(); last_cpu = _tree_cpu(ps)
+    expected = outdir / (docx.stem + ".pdf")
+    while True:
+        try:
+            out, err = popen.communicate(timeout=1.0)
+            break
+        except subprocess.TimeoutExpired:
+            pass
+        now = time.monotonic()
+        cpu = _tree_cpu(ps)
+        if cpu > last_cpu + 0.05 or expected.exists():
+            last_cpu, last_progress = cpu, now
+        if now - started > timeout:
+            _kill_tree(popen.pid, f"timeout after {timeout:.0f} s"); kill_orphans(profile)
+            raise subprocess.TimeoutExpired(cmd, timeout)
+        if now - last_progress > stall:
+            _kill_tree(popen.pid, f"no activity for {stall:.0f} s"); kill_orphans(profile)
+            raise LibreOfficeStalled(stall)
+    kill_orphans(profile)                      # a lingering soffice.bin would wedge the next run
+    return subprocess.CompletedProcess(cmd, popen.returncode, out or "", err or "")
+
+
+class LibreOfficeStalled(Exception):
+    def __init__(self, seconds: float):
+        super().__init__(f"LibreOffice stopped responding (no activity for {seconds:.0f} s)")
+        self.seconds = seconds
 
 
 def _convert_once(soffice: Path, docx: Path, profile: Path, timeout: float) -> tuple[Path, float]:
@@ -97,6 +193,8 @@ def _convert_once(soffice: Path, docx: Path, profile: Path, timeout: float) -> t
             proc = _run(soffice, docx, profile, outdir, timeout)
         except subprocess.TimeoutExpired:
             raise PdfConversionFailed(f"LibreOffice did not finish within {timeout:.0f} s", data={"docx_path": str(docx), "timeout": timeout})
+        except LibreOfficeStalled as e:
+            raise PdfConversionFailed(str(e), data={"docx_path": str(docx), "stalled_after": e.seconds})
         except OSError as e:
             raise PdfConversionFailed(f"could not start LibreOffice: {e}", data={"docx_path": str(docx)})
         produced = outdir / (docx.stem + ".pdf")
@@ -141,6 +239,7 @@ def convert_to_pdf(docx: Path, soffice: Path | None = None, timeout: float | Non
                 profile.mkdir(parents=True, exist_ok=True)
                 (profile / WARM_MARKER).write_text(soffice_version_cached(soffice), encoding="utf8")
             final = docx.with_suffix(".pdf")
+            log.info("PDF conversion took %.1f s (%s profile)", seconds, "warm" if warm else "cold")
             shutil.move(str(produced), final)
             shutil.rmtree(produced.parent, ignore_errors=True)
             return final, seconds

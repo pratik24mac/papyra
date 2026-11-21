@@ -308,3 +308,14 @@ Tests: `tests/test_pdfconv.py` (warm-up, reuse, seeded settings, rebuild-on-fail
 * `templates.example_values` serves `values.example.yaml` from the template's own folder (replaces
   the Rust dev helper, which only knew the bundled v1 path).
 * Tests: `tests/test_user_templates.py`. Guide updated (section 5).
+
+## 2026-11-21 — Windows: LibreOffice hang, not slowness
+Evidence from the user's PC: warm-up converted in 35 s, every later conversion timed out, two
+LibreOffice processes idle at 0 % CPU. On Windows `soffice.exe` is a launcher for `soffice.bin`;
+a timeout killed only the launcher, the orphaned `soffice.bin` kept the profile's pipe, and each
+new launcher handed its job to the wedged orphan and waited. A profile rebuild does not help
+because the pipe name derives from the profile path.
+Fix (`pdfconv/libreoffice.py`, psutil): kill any process using our profile before a run and after
+it; kill the whole process tree on timeout; stall detection (no CPU activity and no output for
+75 s → "LibreOffice stopped responding", tree killed, profile rebuilt, one retry); successful
+conversions logged with their duration. Tests use a shell-script stand-in for soffice.

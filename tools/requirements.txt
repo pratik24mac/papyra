@@ -7,3 +7,4 @@ PyYAML>=6,<7
 pillow>=11          # dev only: pixel comparison in the fidelity harness
 pytest>=8
 keyring>=25           # OS credential store (macOS Keychain / Windows Credential Manager)
+psutil>=6            # process-tree kill, orphan cleanup and stall detection for LibreOffice
