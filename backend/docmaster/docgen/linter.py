@@ -74,6 +74,8 @@ def lint_template(docx: Path, schema: dict) -> list[Finding]:
     # --- tag syntax, per part (after docxtpl's run normalisation, which is what will actually render) ---
     tpl = DocxTemplate(docx)
     env = Environment(undefined=StrictUndefined, autoescape=True)
+    from .dates import date_filter
+    env.filters["date"] = date_filter            # same filters as the renderer, or `| date(...)` lints as a syntax error
     for name, xml in parts.items():
         for s, code in SMART.items():
             if s in xml: f.append(Finding(code, "error", f"smart quote next to a tag ('{s}'): Word auto-corrected the template", name))

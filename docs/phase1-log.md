@@ -415,3 +415,10 @@ Self-test: save-to + path check.
   results; tabbed preview with per-document staleness and failed tabs; history batch rows
   (expand, open, delete); email step attaches every ready PDF. Mock: second template "Cover note";
   e2e `batch.spec.ts` (4 tests). Self-test: batch, batch-path, batch-history.
+
+## 2026-11-24 — Sample templates; linter fix
+`tools/make_sample_templates.py` writes five small fictional templates (offer letter, NDA,
+experience letter, invoice, meeting minutes) with a shared `_assets/sample-watermark.svg`, a
+different `date_format` each, `| date()` filters, a text_list loop and a select, into the user
+templates folder (or a given folder). Found and fixed: the linter's Jinja environment lacked the
+`date` filter, so any template using `| date("…")` was reported as a syntax error (T002).

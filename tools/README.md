@@ -17,6 +17,7 @@ PDF checks need LibreOffice (`brew install --cask libreoffice`) and, for pixel d
 | Convert to PDF (isolated profile, as the app will) | `soffice --headless --norestore -env:UserInstallation=file:///tmp/lo-$$ --convert-to pdf --outdir out out.docx` |
 | Run the tests | `.venv/bin/pytest -q` |
 | Build the backend bundle + stage templates | `.venv/bin/python tools/build_backend.py` |
+| Create five sample templates (watermark, date formats, batches) in the templates folder | `.venv/bin/python tools/make_sample_templates.py [folder]` |
 | Preview a watermark (SVG/PNG → processed PNG) | `.venv/bin/python tools/prepare_watermark.py logo.svg out.png --grayscale` |
 | Regenerate license notices | `.venv/bin/python tools/licenses.py` |
 | Sign the staged backend (macOS, Developer ID) | `tools/sign_backend_macos.sh "Developer ID Application: …"` |

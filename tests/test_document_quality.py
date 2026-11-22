@@ -141,3 +141,10 @@ def test_settings_set_returns_presets_like_get(tmp_path):
     m = build_methods(ROOT / "templates", tmp_path / "out", data_dir=tmp_path / "data", credentials=CredentialStore(backend=K()))
     r = m["settings.set"](Ctx(), key="date_format", value="MMMM Do, YYYY")
     assert r["date_format"] == "MMMM Do, YYYY" and r["date_format_example"] == "March 12th, 2026" and r["date_format_presets"]
+
+
+def test_linter_accepts_the_date_filter(tmp_path):
+    from docmaster.docgen.linter import lint_template
+    d = Document(); d.add_paragraph("On {{ signed }} and {{ signed | date(\"DD/MM/YYYY\") }}"); src = tmp_path / "t.docx"; d.save(src)
+    schema = {"template": {"id": "t", "version": 1, "name": "T", "file": "t.docx"}, "groups": [{"id": "g", "label": "G", "fields": [{"id": "signed", "label": "S", "type": "date", "required": True}]}]}
+    assert [f.code for f in lint_template(src, schema) if f.level == "error"] == []
