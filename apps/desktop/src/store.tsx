@@ -23,6 +23,7 @@ export interface State {
   values: Values;
   job: Job | null;
   backend: BackendStatus;
+  outputDir: string | null;      // per-document "Save to" folder; null = Settings default
 }
 
 type Action =
@@ -30,6 +31,7 @@ type Action =
   | { type: "step"; step: Step }
   | { type: "selectTemplate"; template: TemplateSummary; values: Values }
   | { type: "setValues"; values: Values }
+  | { type: "setOutputDir"; dir: string | null }
   | { type: "jobStart"; jobId: string }
   | { type: "openJob"; jobId: string }
   | { type: "jobProgress"; event: ProgressEvent }
@@ -40,7 +42,7 @@ type Action =
   | { type: "signOut" }
   | { type: "reset" };
 
-const initial: State = { user: null, view: "dashboard", step: 0, template: null, values: {}, job: null, backend: { state: "starting", attempt: 0 } };
+const initial: State = { outputDir: null, user: null, view: "dashboard", step: 0, template: null, values: {}, job: null, backend: { state: "starting", attempt: 0 } };
 
 function reducer(s: State, a: Action): State {
   switch (a.type) {
@@ -48,6 +50,7 @@ function reducer(s: State, a: Action): State {
     case "step": return { ...s, step: a.step };
     case "selectTemplate": return { ...s, template: a.template, values: a.values, job: null, step: 1 };
     case "setValues": return { ...s, values: a.values };
+    case "setOutputDir": return { ...s, outputDir: a.dir };
     case "jobStart": return { ...s, step: 3, job: { jobId: a.jobId, stages: [], result: null, error: null, inFlight: true } };
     case "openJob": return { ...s, view: "wizard", step: 4, template: s.template, values: s.values, job: { jobId: a.jobId, stages: [], result: null, error: null, inFlight: false } };
     case "jobProgress":
@@ -58,7 +61,7 @@ function reducer(s: State, a: Action): State {
     case "backend": return { ...s, backend: a.status };
     case "signIn": return { ...s, user: a.user, view: "dashboard" };
     case "signOut": return { ...initial, backend: s.backend };
-    case "reset": return { ...initial, user: s.user, view: "wizard", backend: s.backend };
+    case "reset": return { ...initial, user: s.user, view: "wizard", backend: s.backend, outputDir: s.outputDir };
   }
 }
 
@@ -93,7 +96,7 @@ export async function startGeneration(state: State, dispatch: (a: Action) => voi
   dispatch({ type: "jobStart", jobId });
   try {
     const api = await backend();
-    const result = await api.generate(state.template.id, state.values, jobId);
+    const result = await api.generate(state.template.id, state.values, jobId, state.outputDir);
     dispatch({ type: "jobDone", result });
   } catch (error) {
     dispatch({ type: "jobFailed", error });

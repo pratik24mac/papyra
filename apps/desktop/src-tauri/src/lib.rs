@@ -171,6 +171,13 @@ async fn selftest(app: AppHandle, templates: PathBuf) -> i32 {
     let r2 = backend.call("network.check", json!({}), Duration::from_secs(20)).await;
     step(&mut ok, "offline-blocks", t, &r2, matches!(&r2, Err(e) if e.data["code"] == "OFFLINE_MODE"));
     let _ = backend.call("settings.set", json!({ "key": "offline_mode", "value": false }), Duration::from_secs(20)).await;
+    let elsewhere = output_dir(&app).join("save-to-elsewhere");
+    let t = Instant::now();
+    let r2 = backend.call("docgen.generate", json!({ "template_id": "resume-ats", "values": values, "job_id": "selftest3", "output_dir": elsewhere.to_string_lossy() }), Duration::from_secs(300)).await;
+    step(&mut ok, "save-to", t, &r2, r2.as_ref().map(|v| v["docx_path"].as_str().map(|s| s.contains("save-to-elsewhere")).unwrap_or(false)).unwrap_or(false));
+    let t = Instant::now();
+    let r2 = files::job_file(&app, &output_dir(&app), "selftest3", "pdf").await.map(|p| json!(p.to_string_lossy()));
+    step(&mut ok, "save-to-path", t, &r2, r2.as_ref().map(|p| p.as_str().unwrap_or("").contains("save-to-elsewhere")).unwrap_or(false));
     let sub = output_dir(&app).join("chosen-folder");
     let t = Instant::now();
     let r2 = backend.call("settings.set", json!({ "key": "output_dir", "value": sub.to_string_lossy() }), Duration::from_secs(20)).await;

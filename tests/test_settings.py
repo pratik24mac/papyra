@@ -54,3 +54,26 @@ def test_generate_uses_the_chosen_output_dir(tmp_path):
     assert Path(r["docx_path"]).parent == chosen.resolve() / "job-x"
     assert m["jobs.get"](Ctx(), job_id="job-x")["output_dir"] == str(chosen.resolve())
     assert json.loads((chosen / "job-x" / "job.json").read_text())["job_id"] == "job-x"
+
+
+def test_generate_into_a_chosen_folder_is_found_again(tmp_path):
+    """'Save to' puts the job elsewhere; jobs.get, the file containment root and a fresh engine
+    instance (via the jobs index) must all find it."""
+    import shutil
+    from docmaster.pdfconv.libreoffice import find_soffice
+    if find_soffice() is None:
+        pytest.skip("LibreOffice not installed")
+    m = build_methods(ROOT / "templates", tmp_path / "default-out", data_dir=tmp_path / "data")
+    values = yaml.safe_load((ROOT / "templates/resume-ats/v1/values.example.yaml").read_text())
+    chosen = tmp_path / "Clients" / "Acme"
+    r = m["docgen.generate"](Ctx(), template_id="resume-ats", values=values, job_id="job-elsewhere", output_dir=str(chosen))
+    assert Path(r["docx_path"]).parent == chosen / "job-elsewhere"
+    info = m["jobs.get"](Ctx(), job_id="job-elsewhere")
+    assert info["output_dir"] == str(chosen) and not info["state"]["pdf_stale"]
+    assert m["settings.get"](Ctx())["last_output_dir"] == str(chosen.resolve())
+    assert (tmp_path / "data" / "jobs-index.json").exists()
+    m2 = build_methods(ROOT / "templates", tmp_path / "default-out", data_dir=tmp_path / "data")   # engine restarted
+    assert m2["jobs.get"](Ctx(), job_id="job-elsewhere")["job"]["job_id"] == "job-elsewhere"
+    assert m2["history.list"](Ctx())["jobs"][0]["output_dir"] == str(chosen.resolve())
+    with pytest.raises(OutputPathError):
+        m["docgen.generate"](Ctx(), template_id="resume-ats", values=values, job_id="job-rel", output_dir="relative/folder")

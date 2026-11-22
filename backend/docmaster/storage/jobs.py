@@ -77,20 +77,43 @@ class JobRecord:
 
 
 class JobStore:
-    def __init__(self, output_dir: Path):
+    """Jobs live in `<output_dir>/<job_id>/` by default; a job may be saved elsewhere ("Save to"),
+    so an index file (`jobs-index.json` in the data dir, ids and folders only) remembers where."""
+
+    def __init__(self, output_dir: Path, index_path: Path | None = None):
         self.output_dir = output_dir
+        self.index_path = index_path
+        self._index: dict[str, str] = {}
+        if index_path and index_path.exists():
+            try: self._index = {k: v for k, v in json.loads(index_path.read_text(encoding="utf8")).items() if isinstance(v, str)}
+            except (OSError, ValueError): self._index = {}
 
-    def dir(self, job_id: str) -> Path:
-        return self.output_dir / check_job_id(job_id)
+    def dir(self, job_id: str, base: Path | None = None) -> Path:
+        check_job_id(job_id)
+        if base is None and job_id in self._index:
+            return Path(self._index[job_id])
+        return (base or self.output_dir) / job_id
 
-    def save(self, rec: JobRecord) -> None:
-        d = self.dir(rec.job_id); d.mkdir(parents=True, exist_ok=True)
+    def remember(self, job_id: str, folder: Path) -> None:
+        self._index[check_job_id(job_id)] = str(folder)
+        if self.index_path:
+            try:
+                self.index_path.parent.mkdir(parents=True, exist_ok=True)
+                tmp = self.index_path.with_suffix(".tmp"); tmp.write_text(json.dumps(self._index, indent=0), encoding="utf8"); tmp.replace(self.index_path)
+            except OSError:
+                pass
+
+    def save(self, rec: JobRecord, base: Path | None = None) -> None:
+        d = self.dir(rec.job_id, base); d.mkdir(parents=True, exist_ok=True)
         tmp = d / "job.json.tmp"
         tmp.write_text(json.dumps(asdict(rec), indent=1), encoding="utf8")
         tmp.replace(d / "job.json")
+        self.remember(rec.job_id, d)
 
     def load(self, job_id: str) -> JobRecord:
         p = self.dir(job_id) / "job.json"
+        if not p.exists() and job_id in self._index:            # indexed folder gone: fall back to the default location
+            p = self.output_dir / job_id / "job.json"
         if not p.exists():
             raise JobNotFound(data={"job_id": job_id})
         try:

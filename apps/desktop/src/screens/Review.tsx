@@ -2,6 +2,7 @@ import { Button, Card, Descriptions, Space, Typography } from "antd";
 import type { FieldSchema, Values } from "../api/types";
 import { formatValue, isEmpty } from "../lib/schema";
 import { startGeneration, useStore } from "../store";
+import { SaveToRow } from "../components/SaveToRow";
 
 function Value({ f, v }: { f: FieldSchema; v: unknown }) {
   if (f.type === "group_list") {
@@ -38,6 +39,7 @@ export function Review() {
           </Descriptions>
         </Card>
       ))}
+      <SaveToRow />
       <Space>
         <Button onClick={() => dispatch({ type: "step", step: 1 })}>Back</Button>
         <Button type="primary" disabled={!ready || state.job?.inFlight} loading={state.job?.inFlight} onClick={() => startGeneration(state, dispatch)}>

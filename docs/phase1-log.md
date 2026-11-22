@@ -390,3 +390,11 @@ small Steps), smaller tiles, top bar 48 px, content padding reduced; short field
 url, date, number, select, checkbox) sit two per row via `lib/layout.tsx` `FieldGrid`, also
 inside repeating-group cards; multiline and lists keep the full width. Preview launch config
 `desktop-web-5175` added for screenshots when 5173 is busy.
+
+## 2026-11-23 — Step C: "Save to" per document
+Review step shows a Save-to card (current folder, Change… via the native picker, Use default).
+`docgen.generate` accepts `output_dir` (absolute, created, remembered as `last_output_dir`);
+the job folder is created under it. `JobStore` keeps `jobs-index.json` (ids and folders only) in
+the data dir so a job saved anywhere is found by preview, email, history and after a restart;
+`jobs.get` reports the job's own parent folder, which the Rust containment check uses.
+Self-test: save-to + path check.

@@ -15,7 +15,7 @@ from ..email.mime import DraftSpec
 from ..email.eml import write_eml
 from ..email import imap_draft
 from ..secrets.credential_store import CredentialStore
-from ..errors import EmailAccountMissing, PdfStale
+from ..errors import EmailAccountMissing, PdfStale, OutputPathError
 from datetime import datetime, timezone
 from ..errors import PdfConversionFailed, PdfInvalid
 from docx import Document
@@ -34,7 +34,7 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
     except OSError: pass
     catalogue = Catalogue(templates_dir, user_templates_dir)
     settings = Settings(data_dir or output_dir.parent / ".papyra", output_dir)
-    jobs = JobStore(settings.output_dir())            # re-pointed on every call via current_jobs()
+    jobs = JobStore(settings.output_dir(), settings.path.parent / "jobs-index.json")   # default re-pointed on every call via current_jobs()
     creds = credentials or CredentialStore()
     history = History(settings.path.parent)
     # persistent LibreOffice profile: first-start cost once per installation, warmed in the background
@@ -86,21 +86,33 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
     def templates_example_values(ctx, template_id: str):
         return {"values": catalogue.example_values(template_id)}
 
-    def docgen_generate(ctx, template_id: str, values: dict, job_id: str | None = None):
+    def _target_dir(output_dir: str | None) -> Path:
+        """Per-document folder override ("Save to"): absolute, created, remembered as the last choice."""
+        if not output_dir:
+            return settings.output_dir()
+        p = Path(os.path.expanduser(str(output_dir)))
+        if not p.is_absolute():
+            raise OutputPathError(data={"path": str(p), "reason": "the save folder must be an absolute path"})
+        ensure_dir(p)
+        settings.set("last_output_dir", str(p.resolve()))
+        return p.resolve()
+
+    def docgen_generate(ctx, template_id: str, values: dict, job_id: str | None = None, output_dir: str | None = None):
         job_id = job_id or uuid.uuid4().hex
         t0 = time.monotonic()
         tpl = catalogue.get(template_id)
         meta = tpl.schema["template"]
         ctx.progress(job_id=job_id, stage="validating", message="Checking values")
         validate(tpl.schema, values)                     # fail before anything touches the disk
-        out_dir = ensure_dir(settings.output_dir() / job_id)
+        base_dir = _target_dir(output_dir)
+        out_dir = ensure_dir(base_dir / job_id)
         stem = filename_from_pattern(meta.get("output_filename", "{date}-" + template_id), values)
         docx_path = unique_path(out_dir, stem, ".docx")
         ctx.progress(job_id=job_id, stage="rendering_docx", message="Generating Word document")
         render_docx(tpl.docx, tpl.schema, values, docx_path, default_date_format=settings.all().get("date_format"))
         d = Document(docx_path); set_document_properties(d, f"{meta['name']} — {stem}", subject=meta["name"]); d.save(docx_path)
-        rec = JobRecord.new(job_id, template_id, tpl.version, docx_path, meta.get("expected_pages")); current_jobs().save(rec)
-        if settings.all().get("keep_history", True): history.record_job(job_id, template_id, tpl.version, "docx_done", settings.output_dir(), docx_path)
+        rec = JobRecord.new(job_id, template_id, tpl.version, docx_path, meta.get("expected_pages")); current_jobs().save(rec, base_dir)
+        if settings.all().get("keep_history", True): history.record_job(job_id, template_id, tpl.version, "docx_done", base_dir, docx_path)
         ctx.progress(job_id=job_id, stage="docx_done", message="Word document created", docx_path=str(docx_path))
         ctx.progress(job_id=job_id, stage="converting_pdf", message="Converting to PDF" if libreoffice.profile_is_warm()
                      else "Starting LibreOffice for the first time on this computer; this can take a few minutes once")
@@ -113,10 +125,10 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         except (PdfConversionFailed, PdfInvalid) as e:
             e.data.setdefault("docx_path", str(docx_path)); e.data["job_id"] = job_id
             rec.status, rec.error = "pdf_failed", {"code": e.code, "message": str(e)}; current_jobs().save(rec)
-            if settings.all().get("keep_history", True): history.record_job(job_id, template_id, tpl.version, "pdf_failed", settings.output_dir(), docx_path, error_code=e.code)
+            if settings.all().get("keep_history", True): history.record_job(job_id, template_id, tpl.version, "pdf_failed", base_dir, docx_path, error_code=e.code)
             raise
         rec.set_pdf(pdf_path, pages); current_jobs().save(rec)
-        if settings.all().get("keep_history", True): history.record_job(job_id, template_id, tpl.version, "pdf_done", settings.output_dir(), docx_path, pdf_path, pages)
+        if settings.all().get("keep_history", True): history.record_job(job_id, template_id, tpl.version, "pdf_done", base_dir, docx_path, pdf_path, pages)
         ctx.progress(job_id=job_id, stage="pdf_done", message=f"PDF created ({pages} pages)", pdf_path=str(pdf_path))
         return {"job_id": job_id, "template_id": template_id, "template_version": tpl.version,
                 "docx_path": str(docx_path), "pdf_path": str(pdf_path), "pages": pages,
@@ -126,7 +138,7 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
     def jobs_get(ctx, job_id: str):
         """Current state of a job's files: used before preview/email to refuse a stale PDF."""
         rec = current_jobs().load(job_id)
-        return {"job": rec.__dict__, "state": rec.current_state(), "output_dir": str(settings.output_dir())}
+        return {"job": rec.__dict__, "state": rec.current_state(), "output_dir": str(Path(rec.docx_path).parent.parent)}
 
     def docgen_convert_pdf(ctx, job_id: str):
         """Re-create the PDF from the DOCX as it is now (after an external edit)."""

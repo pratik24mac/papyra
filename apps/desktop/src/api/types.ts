@@ -148,6 +148,7 @@ export interface AppSettings {
   offline_mode: boolean;
   keep_history: boolean;
   date_format: string;
+  last_output_dir: string | null;
   date_format_example: string;
   date_format_presets: { format: string; example: string }[];
   defaults: { output_dir: string };

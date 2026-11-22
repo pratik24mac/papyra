@@ -16,7 +16,7 @@ export interface BackendApi {
   listTemplates(): Promise<TemplateSummary[]>;
   rescanTemplates(): Promise<TemplateSummary[]>;
   openTemplatesDir(): Promise<string>;
-  generate(templateId: string, values: Values, jobId: string): Promise<GenerateResult>;
+  generate(templateId: string, values: Values, jobId: string, outputDir?: string | null): Promise<GenerateResult>;
   exampleValues(templateId: string): Promise<Values>;
   status(): Promise<BackendStatus>;
   prepareEml(jobId: string, message: DraftMessage): Promise<EmlResult>;
@@ -62,7 +62,7 @@ async function tauriApi(): Promise<BackendApi> {
     selfCheck: (convert = true) => call<SelfCheck>("system.selfcheck", { convert }),
     openLibreOfficeDownload: () => invoke<void>("open_libreoffice_download"),
     listTemplates: async () => (await call<{ templates: TemplateSummary[] }>("templates.list")).templates,
-    generate: (template_id, values, job_id) => call<GenerateResult>("docgen.generate", { template_id, values, job_id }),
+    generate: (template_id, values, job_id, output_dir) => call<GenerateResult>("docgen.generate", { template_id, values, job_id, ...(output_dir ? { output_dir } : {}) }),
     rescanTemplates: async () => (await call<{ templates: TemplateSummary[] }>("templates.rescan")).templates,
     openTemplatesDir: () => invoke<string>("open_templates_dir"),
     exampleValues: async (template_id) => (await call<{ values: Values }>("templates.example_values", { template_id })).values,
@@ -111,7 +111,7 @@ async function mockApi(): Promise<BackendApi> {
   let offline = true, keepHistory = true;   // offline by default, like the real backend
   let dateFormat = "D MMMM YYYY";
   const presets = [["D MMMM YYYY", "12 March 2026"], ["DD/MM/YYYY", "12/03/2026"], ["MM/DD/YYYY", "03/12/2026"], ["YYYY-MM-DD", "2026-03-12"], ["MMMM D, YYYY", "March 12, 2026"], ["Do MMMM YYYY", "12th March 2026"], ["DD-MMM-YYYY", "12-Mar-2026"], ["dddd, D MMMM YYYY", "Thursday, 12 March 2026"]];
-  const settingsObj = (): AppSettings => ({ output_dir: outputDir, offline_mode: offline, keep_history: keepHistory, date_format: dateFormat,
+  const settingsObj = (): AppSettings => ({ output_dir: outputDir, offline_mode: offline, keep_history: keepHistory, date_format: dateFormat, last_output_dir: null,
     date_format_example: presets.find((p) => p[0] === dateFormat)?.[1] ?? "12 March 2026", date_format_presets: presets.map(([format, example]) => ({ format, example })),
     defaults: { output_dir: "/Users/you/Documents/Papyra" }, settings_file: "/mock/settings.json" });
   const historyRows: HistoryRow[] = [];
@@ -178,7 +178,8 @@ async function mockApi(): Promise<BackendApi> {
     status: async () => ({ state: "ready", version: "mock", pid: 0, frozen: false }),
     onProgress: async (cb) => { progressListeners.add(cb); return () => progressListeners.delete(cb); },
     onStatus: async (cb) => { statusListeners.add(cb); return () => statusListeners.delete(cb); },
-    generate: async (template_id, values, job_id) => {
+    generate: async (template_id, values, job_id, output_dir) => {
+      const base = output_dir || "/mock/out";
       const emit = (stage: ProgressEvent["stage"], message: string) => progressListeners.forEach((cb) => cb({ job_id, stage, message }));
       emit("validating", "Checking values"); await sleep(300);
       if (!values.full_name) throw rpcError("VALIDATION_ERROR", "Some values are missing or invalid.", { errors: ["full_name: required"] });
@@ -187,7 +188,7 @@ async function mockApi(): Promise<BackendApi> {
       if (values.full_name === "FAIL PDF") throw rpcError("PDF_CONVERSION_FAILED", "The PDF could not be created. The Word document has been kept.", { docx_path: "/mock/out/doc.docx" });
       emit("pdf_done", "PDF created (2 pages)");
       if (keepHistory) historyRows.push({ job_id, template_id, template_version: 1, created_at: new Date().toISOString(), status: "pdf_done", output_dir: outputDir, docx_path: `/mock/out/${job_id}/Resume.docx`, pdf_path: `/mock/out/${job_id}/Resume.pdf`, pages: 2, error_code: null, drafts: 0, docx_exists: true, pdf_exists: true });
-      return { job_id, template_id, template_version: 1, docx_path: `/mock/out/${job_id}/Resume.docx`, pdf_path: `/mock/out/${job_id}/Resume.pdf`, pages: 2, docx_sha256: "mock", pdf_sha256: "mock", pdf_seconds: 1.1, total_ms: 2100 };
+      return { job_id, template_id, template_version: 1, docx_path: `${base}/${job_id}/Resume.docx`, pdf_path: `${base}/${job_id}/Resume.pdf`, pages: 2, docx_sha256: "mock", pdf_sha256: "mock", pdf_seconds: 1.1, total_ms: 2100 };
     },
   };
 }

@@ -14,13 +14,13 @@ class SettingInvalid(DocMasterError):
     code, rpc_code, user_message = "SETTING_INVALID", -32060, "That setting value is not allowed."
 
 
-KNOWN = {"output_dir": str, "imap_account": dict, "offline_mode": bool, "keep_history": bool, "date_format": str}
+KNOWN = {"output_dir": str, "imap_account": dict, "offline_mode": bool, "keep_history": bool, "date_format": str, "last_output_dir": str}
 
 
 class Settings:
     def __init__(self, data_dir: Path, default_output_dir: Path):
         self.path = data_dir / "settings.json"
-        self.defaults = {"output_dir": str(default_output_dir), "imap_account": None, "offline_mode": True, "keep_history": True, "date_format": "D MMMM YYYY"}
+        self.defaults = {"output_dir": str(default_output_dir), "imap_account": None, "offline_mode": True, "keep_history": True, "date_format": "D MMMM YYYY", "last_output_dir": None}
         self._lock = threading.Lock()
         self._data: dict = {}
         self._load()
