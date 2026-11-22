@@ -49,6 +49,9 @@ def stage_templates() -> Path:
     target = RES / "templates"
     if target.exists(): shutil.rmtree(target)
     keep = {"template.docx", "schema.yaml", "values.example.yaml", "values.example.json", "reference.pdf"}
+    assets = ROOT / "templates" / "_assets"
+    if assets.is_dir():
+        shutil.copytree(assets, target / "_assets")
     for schema in sorted((ROOT / "templates").glob("*/v*/schema.yaml")):
         src = schema.parent
         dst = target / src.parent.name / src.name

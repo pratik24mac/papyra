@@ -375,3 +375,11 @@ PixelWidth/PixelHeight, aspect from the viewBox) at `raster_width` px, then Pill
 `grayscale`, `black_white` (threshold), `remove_background` (near-white → transparent with a soft
 ramp). Results cached by source hash + options in `<data>/watermark-cache`. Schema keys documented;
 `tools/prepare_watermark.py` previews the processed PNG. Linter accepts png/jpg/jpeg/svg only.
+
+## 2026-11-23 — Step A: settings crash, shared watermark assets, superscript ordinals
+* `settings.set` now returns the same enriched payload as `settings.get` (presets, example); the
+  Dates card crashed on `.some` of the missing presets after a change. UI guards too.
+* Watermark images resolve from the template folder, then `templates/_assets/` (shared across
+  templates; staged into the bundle; user root supports it too). Linter S006 uses the same rule.
+* Printed dates containing an ordinal get a superscript suffix run (`ooxml.superscript_ordinals`),
+  tracked per render incl. the `date` filter; `template.ordinal_superscript: false` disables.

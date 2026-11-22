@@ -45,7 +45,8 @@ Set labels, `type`, `required`, `help`, `validation` (max_length, pattern, min/m
 * **Dates** are entered with a picker and stored as `YYYY-MM-DD`; the document gets a formatted
   string. Format precedence: field `format` → template `date_format` → Settings → Dates →
   default `D MMMM YYYY` (12 March 2026). Tokens: `D` `DD` `Do` day, `M` `MM` `MMM` `MMMM`
-  month, `YY` `YYYY` year, `ddd` `dddd` weekday. Inside the document a single tag can re-format:
+  month, `YY` `YYYY` year, `ddd` `dddd` weekday. Ordinal suffixes (12th) are raised as superscript
+  like Word does; `template.ordinal_superscript: false` keeps them inline. Inside the document a single tag can re-format:
   `{{ joining_date | date("DD/MM/YYYY") }}`.
 * **Images** (logos, watermarks) are exported losslessly at their original resolution; use a
   PNG at the size you want printed (300 dpi or more for a full-page watermark).
@@ -54,7 +55,7 @@ Set labels, `type`, `required`, `help`, `validation` (max_length, pattern, min/m
   ```yaml
   template:
     watermark:
-      image: logo.svg        # SVG (best: rendered at any size), PNG (transparency kept) or JPEG
+      image: logo.svg        # in this template folder, or shared: templates/_assets/logo.svg (write `logo.svg` or `_assets/logo.svg`)
       grayscale: true        # drop colour (false keeps the original colours)
       black_white: false     # true: pure black and white instead of shades of gray
       remove_background: true  # white / near-white areas become transparent (default true)

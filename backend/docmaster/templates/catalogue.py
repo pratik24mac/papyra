@@ -18,7 +18,8 @@ README = """Put your templates here, one folder per template:
 
   <template-id>/v1/template.docx          the tagged Word document
   <template-id>/v1/schema.yaml            the form definition
-  <template-id>/v1/values.example.yaml    sample values for "Load example values"
+  <template-id>/v1/values.example.yaml    sample values for "Pre-fill with example values"
+  _assets/logo.svg                        shared files (watermarks) any template can reference
 
 Create the three files from a tagged Word document with:
   python tools/new_template.py <template-id> <tagged.docx> --name "Display name"

@@ -32,15 +32,28 @@ def configure(cache_dir: Path | None) -> None:
     CACHE_DIR = cache_dir
 
 
+def resolve_asset(template_dir: Path, name: str) -> Path | None:
+    """`name` relative to the template folder, else to the shared `_assets` folder at the templates
+    root (`templates/_assets/…`), with or without the `_assets/` prefix."""
+    rel = Path(name)
+    if rel.is_absolute() or ".." in rel.parts:
+        return None
+    root = template_dir.parent.parent                       # templates/<id>/v1 → templates
+    for candidate in (template_dir / rel, root / rel, root / "_assets" / rel, root / "_assets" / rel.name):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def config_from_schema(schema: dict, template_dir: Path) -> dict | None:
     cfg = (schema.get("template") or {}).get("watermark")
     if not cfg:
         return None
     if not isinstance(cfg, dict) or not cfg.get("image"):
         raise PdfConversionFailed("template.watermark must be a mapping with an 'image' file", data={"watermark": cfg})
-    merged = {**DEFAULTS, **cfg, "image": template_dir / cfg["image"]}
-    if not merged["image"].exists():
-        raise PdfConversionFailed(f"watermark image not found: {merged['image'].name}", data={"image": str(merged["image"])})
+    merged = {**DEFAULTS, **cfg, "image": resolve_asset(template_dir, cfg["image"])}
+    if merged["image"] is None:
+        raise PdfConversionFailed(f"watermark image not found: {cfg['image']} (looked in the template folder and in the templates' _assets folder)", data={"image": cfg["image"]})
     merged["opacity"] = min(1.0, max(0.0, float(merged["opacity"]))); merged["scale"] = min(1.0, max(0.05, float(merged["scale"])))
     merged["rotation"] = float(merged["rotation"]); merged["position"] = str(merged["position"]); merged["pages"] = str(merged["pages"])
     for k in ("grayscale", "black_white", "remove_background"): merged[k] = bool(merged[k])

@@ -56,8 +56,8 @@ def lint_template(docx: Path, schema: dict) -> list[Finding]:
     if wm is not None:
         if not isinstance(wm, dict) or not wm.get("image"):
             f.append(Finding("S006", "error", "template.watermark needs an 'image' file name", "schema.yaml"))
-        elif not (docx.parent / wm["image"]).exists():
-            f.append(Finding("S006", "error", f"watermark image '{wm['image']}' is not in the template folder", "schema.yaml"))
+        elif __import__("docmaster.pdfconv.watermark", fromlist=["resolve_asset"]).resolve_asset(docx.parent, wm["image"]) is None:
+            f.append(Finding("S006", "error", f"watermark image '{wm['image']}' not found in the template folder or in templates/_assets", "schema.yaml"))
         elif Path(wm["image"]).suffix.lower() not in (".png", ".jpg", ".jpeg", ".svg"):
             f.append(Finding("S006", "error", f"watermark image must be PNG, JPEG or SVG, not '{Path(wm['image']).suffix}'", "schema.yaml"))
     if not schema.get("template", {}).get("output_filename"):

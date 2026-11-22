@@ -15,14 +15,15 @@ export function DateFormatCard() {
     catch (e) { const d = describeError(e); message.error(`${d.title}: ${d.detail}`); }
   };
   if (!s) return null;
-  const isPreset = s.date_format_presets.some((p) => p.format === s.date_format);
+  const presets = s.date_format_presets ?? [];
+  const isPreset = presets.some((p) => p.format === s.date_format);
   return (
     <Card className="glass" title="Dates in documents">
       <Space orientation="vertical" style={{ width: "100%" }}>
         <Typography.Text type="secondary">Dates are entered with a date picker and printed in this format in every document. A template can set its own format, and a single field can override both.</Typography.Text>
         <Space wrap>
           <Select style={{ minWidth: 320 }} value={isPreset ? s.date_format : "custom"} onChange={(v) => v !== "custom" && apply(v)}
-            options={[...s.date_format_presets.map((p) => ({ value: p.format, label: `${p.example}  ·  ${p.format}` })), { value: "custom", label: "Custom…" }]} />
+            options={[...presets.map((p) => ({ value: p.format, label: `${p.example}  ·  ${p.format}` })), { value: "custom", label: "Custom…" }]} />
           <Input placeholder="Custom, e.g. Do MMM YYYY" style={{ width: 220 }} value={custom || (isPreset ? "" : s.date_format)} onChange={(e) => setCustom(e.target.value)} onPressEnter={() => custom && apply(custom)} />
         </Space>
         <Typography.Text>Example: <strong>{s.date_format_example}</strong></Typography.Text>

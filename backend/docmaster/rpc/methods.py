@@ -154,13 +154,17 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         return {"job_id": job_id, "pdf_path": str(pdf_path), "pages": pages, "docx_sha256": rec.docx_sha256,
                 "pdf_sha256": rec.pdf_sha256, "pdf_seconds": round(seconds, 2)}
 
-    def settings_get(ctx):
+    def settings_payload():
         from ..docgen.dates import PRESETS, format_date
         return settings.all() | {"date_format_presets": [{"format": p, "example": format_date("2026-03-12", p)} for p in PRESETS],
                                  "date_format_example": format_date("2026-03-12", settings.all().get("date_format") or "D MMMM YYYY")}
 
+    def settings_get(ctx):
+        return settings_payload()
+
     def settings_set(ctx, key: str, value=None):
-        return settings.set(key, value)
+        settings.set(key, value)
+        return settings_payload()
 
     # ---------------- email ----------------
     def _fresh_pdf_job(job_id: str):

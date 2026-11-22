@@ -158,3 +158,55 @@ def strip_word_watermarks(doc: _Document) -> int:
                     while run is not None and run.tag != qn("w:r"): run = run.getparent()
                     if run is not None: run.getparent().remove(run); removed += 1
     return removed
+
+
+def _all_runs(doc: _Document):
+    parts = [doc.element.body]
+    for section in doc.sections:
+        for hf in (section.header, section.footer, section.first_page_header, section.first_page_footer, section.even_page_header, section.even_page_footer):
+            if hf is not None and hf._element is not None:
+                parts.append(hf._element)
+    for part in parts:
+        yield from list(part.iter(qn("w:r")))
+
+
+def superscript_ordinals(doc: _Document, dates: set[str]) -> int:
+    """For each printed date in `dates` that contains an ordinal (12th), raise the suffix as a
+    superscript run, as Word's AutoCorrect does. Only the given strings are touched."""
+    import re
+    if not dates:
+        return 0
+    changed = 0
+    for run in _all_runs(doc):
+        texts = run.findall(qn("w:t"))
+        if len(texts) != 1 or not texts[0].text:
+            continue
+        text = texts[0].text
+        hit = next((d for d in dates if d in text), None)
+        if hit is None:
+            continue
+        m = re.search(r"(\d{1,2})(st|nd|rd|th)\b", hit)
+        if not m:
+            continue
+        start = text.index(hit) + m.start(2); end = start + len(m.group(2))
+        before, suffix, after = text[:start], text[start:end], text[end:]
+        rpr = run.find(qn("w:rPr"))
+        def make(txt, sup=False):
+            r = copy.deepcopy(run)
+            for t in r.findall(qn("w:t")): r.remove(t)
+            t = OxmlElement("w:t"); t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve"); t.text = txt; r.append(t)
+            if sup:
+                pr = r.find(qn("w:rPr"))
+                if pr is None:
+                    pr = OxmlElement("w:rPr"); r.insert(0, pr)
+                for old in pr.findall(qn("w:vertAlign")): pr.remove(old)
+                va = OxmlElement("w:vertAlign"); va.set(qn("w:val"), "superscript"); pr.append(va)
+            return r
+        parent = run.getparent(); idx = parent.index(run)
+        new = [make(before)] if before else []
+        new.append(make(suffix, True))
+        if after: new.append(make(after))
+        parent.remove(run)
+        for i, r in enumerate(new): parent.insert(idx + i, r)
+        changed += 1
+    return changed

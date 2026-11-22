@@ -49,8 +49,15 @@ class FormattedDate(str):
         return obj
 
 
+RENDERED: list[str] = []      # every formatted date produced during the current render (for the superscript pass)
+
+
 def date_filter(value, fmt: str = DEFAULT_FORMAT) -> str:
     iso = getattr(value, "iso", None) or (value if isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) else None)
     if not iso:
         return str(value)
-    return format_date(iso, fmt)
+    out = format_date(iso, fmt); RENDERED.append(out)
+    return out
+
+
+ORDINAL_RE = re.compile(r"(\d{1,2})(st|nd|rd|th)\b")

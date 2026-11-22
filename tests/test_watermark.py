@@ -129,3 +129,18 @@ def test_linter_accepts_svg_and_rejects_other_formats(tmp_path):
     assert "S006" not in {f.code for f in lint_template(d / "template.docx", schema)}
     schema["template"]["watermark"] = {"image": "logo.bmp"}
     assert "S006" in {f.code for f in lint_template(d / "template.docx", schema)}
+
+
+def test_watermark_resolves_from_shared_assets_folder(tmp_path):
+    from docmaster.pdfconv.watermark import resolve_asset
+    root = tmp_path / "templates"; tdir = root / "offer" / "v1"; tdir.mkdir(parents=True); (root / "_assets").mkdir()
+    (root / "_assets" / "logo.svg").write_text(SVG); (tdir / "local.png").write_bytes(b"x")
+    assert resolve_asset(tdir, "local.png") == tdir / "local.png"
+    assert resolve_asset(tdir, "logo.svg") == root / "_assets" / "logo.svg"
+    assert resolve_asset(tdir, "_assets/logo.svg") == root / "_assets" / "logo.svg"
+    assert resolve_asset(tdir, "../../etc/passwd") is None and resolve_asset(tdir, "missing.svg") is None
+    cfg = config_from_schema({"template": {"watermark": {"image": "logo.svg"}}}, tdir)
+    assert cfg["image"] == root / "_assets" / "logo.svg"
+    schema = yaml.safe_load((TPL / "schema.yaml").read_text()); schema["template"]["watermark"] = {"image": "logo.svg"}
+    d = root / "resume-ats" / "v1"; shutil.copytree(TPL, d, ignore=shutil.ignore_patterns("samples", "reference.pdf"))
+    assert "S006" not in {f.code for f in lint_template(d / "template.docx", schema)}

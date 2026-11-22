@@ -15,7 +15,7 @@ from docx import Document
 from docxtpl import DocxTemplate, RichText
 from jinja2 import Environment, StrictUndefined
 from ..errors import ValidationError, TemplateInvalid, DocxGenerationFailed
-from .dates import FormattedDate, date_filter, format_date, DEFAULT_FORMAT
+from .dates import FormattedDate, date_filter, format_date, DEFAULT_FORMAT, RENDERED, ORDINAL_RE
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -117,12 +117,13 @@ def build_context(tpl, fields, values, date_format: str = DEFAULT_FORMAT):
         v = values.get(f["id"])
         ctx[f["id"]] = v if v is not None else ("" if f["type"] not in ("checkbox", "number") else None)
         if f["type"] == "date" and v:
-            ctx[f["id"]] = FormattedDate(format_date(v, f.get("format") or date_format), v)
+            ctx[f["id"]] = FormattedDate(format_date(v, f.get("format") or date_format), v); RENDERED.append(str(ctx[f["id"]]))
         elif f["type"] == "group_list" and isinstance(v, list):
             dated = [sub for sub in f.get("item_fields", []) if sub["type"] == "date"]
             if dated:
                 ctx[f["id"]] = [{**item, **{sub["id"]: FormattedDate(format_date(item[sub["id"]], sub.get("format") or date_format), item[sub["id"]])
                                            for sub in dated if item.get(sub["id"])}} for item in v]
+                RENDERED.extend(str(x) for item in ctx[f["id"]] for x in item.values() if isinstance(x, FormattedDate))
         if f["type"] == "url" and v:
             label = re.sub(r"^https?://(www\.)?", "", v).rstrip("/")
             rt = RichText(); rt.add(label, url_id=tpl.build_url_id(v), color="0563c1", underline=True, size=20)
@@ -138,6 +139,7 @@ def render_docx(template_docx: Path, schema: dict, values: dict, out: Path, defa
     check_template_against_schema(tpl, schema, fields, env)
     meta = schema.get("template", {})
     date_format = meta.get("date_format") or default_date_format or DEFAULT_FORMAT
+    RENDERED.clear()
     try:
         tpl.render(build_context(tpl, fields, values, date_format), jinja_env=env)
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -157,6 +159,9 @@ def render_docx(template_docx: Path, schema: dict, values: dict, out: Path, defa
     if meta.get("watermark"):
         from .ooxml import strip_word_watermarks
         changed += strip_word_watermarks(doc)          # the PDF step stamps the configured image instead
+    if meta.get("ordinal_superscript", True):
+        from .ooxml import superscript_ordinals
+        changed += superscript_ordinals(doc, {d for d in RENDERED if ORDINAL_RE.search(d)})
     if changed:
         doc.save(out)
     return out

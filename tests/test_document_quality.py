@@ -109,3 +109,35 @@ def test_pdf_keeps_images_lossless_at_full_resolution(tmp_path):
     im = images[0]
     assert "/DCTDecode" not in str(im.get("/Filter"))                   # not JPEG-recompressed
     assert int(im["/Width"]) == 2400 and int(im["/Height"]) == 1200     # not downsampled to 300 dpi
+
+
+def test_ordinal_suffix_becomes_superscript(tmp_path):
+    d = Document(); d.add_paragraph("Signed on {{ signed }} in {{ city }}."); d.add_paragraph("Also {{ signed | date(\"Do MMM YYYY\") }}")
+    src = tmp_path / "t.docx"; d.save(src)
+    schema = {"template": {"id": "t", "version": 1, "name": "T", "file": "t.docx"}, "groups": [{"id": "g", "label": "G", "fields": [
+        {"id": "signed", "label": "S", "type": "date", "required": True, "format": "MMMM Do, YYYY"}, {"id": "city", "label": "C", "type": "text", "required": True}]}]}
+    out = render_docx(src, schema, {"signed": "2026-03-22", "city": "Pune"}, tmp_path / "o.docx")
+    p = Document(out).paragraphs[0]
+    assert p.text == "Signed on March 22nd, 2026 in Pune."
+    runs = [(r.text, r.font.superscript) for r in p.runs]
+    assert ("nd", True) in runs and all(sup is not True for t, sup in runs if t != "nd")
+    p2 = Document(out).paragraphs[1]
+    assert p2.text == "Also 22nd Mar 2026" and ("nd", True) in [(r.text, r.font.superscript) for r in p2.runs]
+    schema["template"]["ordinal_superscript"] = False
+    out = render_docx(src, schema, {"signed": "2026-03-22", "city": "Pune"}, tmp_path / "o2.docx")
+    assert all(r.font.superscript is not True for r in Document(out).paragraphs[0].runs)
+
+
+def test_settings_set_returns_presets_like_get(tmp_path):
+    from docmaster.rpc.methods import build_methods
+    from docmaster.secrets.credential_store import CredentialStore
+    class K:
+        d: dict = {}
+        def set_password(self, s, k, v): self.d[(s, k)] = v
+        def get_password(self, s, k): return self.d.get((s, k))
+        def delete_password(self, s, k): self.d.pop((s, k), None)
+    class Ctx:
+        def progress(self, **k): pass
+    m = build_methods(ROOT / "templates", tmp_path / "out", data_dir=tmp_path / "data", credentials=CredentialStore(backend=K()))
+    r = m["settings.set"](Ctx(), key="date_format", value="MMMM Do, YYYY")
+    assert r["date_format"] == "MMMM Do, YYYY" and r["date_format_example"] == "March 12th, 2026" and r["date_format_presets"]
