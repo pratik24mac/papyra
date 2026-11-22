@@ -58,7 +58,8 @@ Set labels, `type`, `required`, `help`, `validation` (max_length, pattern, min/m
       image: logo.svg        # in this template folder, or shared: templates/_assets/logo.svg (write `logo.svg` or `_assets/logo.svg`)
       grayscale: true        # drop colour (false keeps the original colours)
       black_white: false     # true: pure black and white instead of shades of gray
-      remove_background: true  # white / near-white areas become transparent (default true)
+      remove_background: true  # the background colour (sampled at the corners: white, black, …) becomes transparent
+      invert: auto           # auto flips a light-on-dark logo so it stamps dark on paper; true/false to force
       raster_width: 3000     # SVG only: pixels across; 3000 ≈ 300 dpi on an A4 page
       opacity: 0.15          # washout strength, 0..1 (Word's default is about 0.3)
       scale: 0.6             # width as a fraction of the page width
@@ -66,7 +67,8 @@ Set labels, `type`, `required`, `help`, `validation` (max_length, pattern, min/m
       position: center       # center | top | bottom
       pages: all             # all | first
   ```
-  Papyra removes any Word watermark shape from the headers and stamps this image behind the
+  An SVG that only wraps a bitmap (one `<image>` with embedded data, common for exported logos) is
+  decoded directly at the bitmap's own resolution. Papyra removes any Word watermark shape from the headers and stamps this image behind the
   text of every page in the PDF, losslessly, so it prints as sharp as the source file. Text above
   it stays searchable. An SVG is rendered through LibreOffice at `raster_width` pixels and
   cached. To see exactly what will be stamped before generating:

@@ -431,3 +431,13 @@ Fixes: both passes iterate only existing header/footer parts (`header_footer_ele
 build uses `--collect-all docx`, `system.selfcheck` has a "document post-processing" check that
 forces header creation inside the frozen engine, and the Rust self-test runs `system.selfcheck`
 and fails on any failing check.
+
+## 2026-11-24 — User's logo SVG; denser layout
+* The user's `1.svg` is a 4167-px bitmap wrapped in `<image xlink:href="data:img/png;base64,…">`
+  (non-standard MIME); LibreOffice rendered it as nothing. `watermark_image.extract_embedded_image`
+  decodes such wrappers directly (and is the fallback when a render comes out blank). The bitmap is
+  white lettering on solid black: background removal now samples the corners for the background
+  colour and keys on distance from it; `invert: auto` flips light-on-dark logos so they stamp dark.
+  `tools/make_sample_templates.py --watermark <file>` installs a logo as `_assets/logo.<ext>`.
+* Layout: template grid 3 per row (lg), leaner cards (ellipsised description, counts, no tag
+  cloud); short fields 3 per row on wide windows, Form item margin 6, card padding 12, header 38.

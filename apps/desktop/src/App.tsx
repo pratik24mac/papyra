@@ -76,8 +76,8 @@ export default function App() {
       token: { colorPrimary: "#0a84ff", borderRadius: 10, fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif',
                colorBgBase: "#0a0a0c", colorBgContainer: "rgba(28,28,30,0.72)", colorBgElevated: "#2c2c2e", colorBorder: "rgba(255,255,255,0.10)", colorBorderSecondary: "rgba(255,255,255,0.08)",
                colorText: "#f5f5f7", colorTextSecondary: "#a1a1a6", controlHeight: 32, fontSize: 13, marginLG: 16, paddingLG: 16 },
-      components: { Card: { headerBg: "transparent", bodyPadding: 14, headerPadding: 14, headerHeight: 42, headerFontSize: 14 },
-                    Form: { itemMarginBottom: 10, verticalLabelPadding: "0 0 4px", labelFontSize: 12 },
+      components: { Card: { headerBg: "transparent", bodyPadding: 12, headerPadding: 12, headerHeight: 38, headerFontSize: 13 },
+                    Form: { itemMarginBottom: 6, verticalLabelPadding: "0 0 2px", labelFontSize: 12 },
                     Descriptions: { itemPaddingBottom: 6 },
                     Segmented: { itemSelectedBg: "rgba(255,255,255,0.14)", trackBg: "rgba(255,255,255,0.06)" } },
     }}>

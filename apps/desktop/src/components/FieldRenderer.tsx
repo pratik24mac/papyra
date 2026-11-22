@@ -15,7 +15,7 @@ const { TextArea } = Input;
 function Control({ f, ...rest }: { f: FieldSchema } & Record<string, unknown>) {
   const v = f.validation ?? {};
   switch (f.type) {
-    case "multiline": return <TextArea autoComplete="off" autoSize={{ minRows: 3, maxRows: 10 }} maxLength={v.max_length} showCount={!!v.max_length} {...rest} />;
+    case "multiline": return <TextArea autoComplete="off" autoSize={{ minRows: 2, maxRows: 8 }} maxLength={v.max_length} showCount={!!v.max_length} {...rest} />;
     case "number": return <InputNumber autoComplete="off" style={{ width: "100%" }} min={v.min} max={v.max} {...rest} />;
     case "select": return <Select allowClear={!f.required} options={(f.options ?? []).map((o) => (typeof o === "string" ? { value: o, label: o } : o))} {...rest} />;
     case "checkbox": return <Checkbox {...rest}>{f.help ?? f.label}</Checkbox>;

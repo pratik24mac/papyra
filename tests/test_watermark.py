@@ -157,3 +157,32 @@ def test_passes_never_create_header_parts():
     assert superscript_ordinals(d, {"March 12th, 2026"}) == 1
     assert len(d.part.rels) == before                                   # no header/footer part was added
     assert [r.text for r in d.paragraphs[0].runs if r.font.superscript] == ["th"]
+
+
+def test_svg_wrapping_an_embedded_bitmap_is_decoded_directly(tmp_path):
+    """Logos exported as SVG often contain only one <image> with a data URI (sometimes `data:img/png`);
+    LibreOffice draws nothing for those, so the bitmap is used as-is."""
+    import base64, io
+    from PIL import Image
+    from docmaster.pdfconv.watermark_image import extract_embedded_image, prepare
+    bmp = Image.new("RGBA", (300, 120), (255, 255, 255, 255)); [bmp.putpixel((x, y), (10, 20, 200, 255)) for x in range(20, 280) for y in range(20, 100)]
+    buf = io.BytesIO(); bmp.save(buf, "PNG"); b64 = base64.b64encode(buf.getvalue()).decode()
+    svg = tmp_path / "logo.svg"; svg.write_text(f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="300" height="120" viewBox="0 0 300 120"><image id="Background" width="300" height="120" xlink:href="data:img/png;base64,{b64}"/></svg>')
+    out = extract_embedded_image(svg, tmp_path / "e.png")
+    assert out and Image.open(out).size == (300, 120)
+    png = prepare(svg, tmp_path / "cache", grayscale=True)
+    im = Image.open(png); assert im.size == (300, 120) and im.getpixel((5, 5))[3] == 0 and im.getpixel((150, 60))[:3] != (255, 255, 255)
+    (tmp_path / "v.svg").write_text(SVG)
+    assert extract_embedded_image(tmp_path / "v.svg", tmp_path / "x.png") is None       # real vector content is rendered, not extracted
+
+
+def test_light_logo_on_dark_background_is_cut_out_and_inverted(tmp_path):
+    from PIL import Image
+    from docmaster.pdfconv.watermark_image import process_image
+    im = Image.new("RGB", (200, 100), "black"); [im.putpixel((x, y), (255, 255, 255)) for x in range(40, 160) for y in range(30, 70)]
+    src = tmp_path / "logo.png"; im.save(src)
+    out = Image.open(process_image(src, tmp_path / "o.png", grayscale=True))
+    assert out.getpixel((5, 5))[3] == 0                                   # black background removed
+    assert out.getpixel((100, 50)) == (0, 0, 0, 255)                      # white lettering became black
+    keep = Image.open(process_image(src, tmp_path / "k.png", grayscale=True, invert=False))
+    assert keep.getpixel((100, 50))[:3] == (255, 255, 255)                # explicit invert: false keeps it white

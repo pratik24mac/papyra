@@ -23,7 +23,7 @@ from pypdf.generic import ArrayObject, DictionaryObject, FloatObject, NameObject
 from ..errors import PdfConversionFailed
 
 DEFAULTS = {"opacity": 0.15, "scale": 0.6, "rotation": 0.0, "position": "center", "pages": "all",
-            "grayscale": False, "black_white": False, "remove_background": True, "raster_width": 3000}
+            "grayscale": False, "black_white": False, "remove_background": True, "raster_width": 3000, "invert": "auto"}
 CACHE_DIR: Path | None = None       # set by the methods layer (data dir); None → next to the image
 
 
@@ -58,6 +58,7 @@ def config_from_schema(schema: dict, template_dir: Path) -> dict | None:
     merged["rotation"] = float(merged["rotation"]); merged["position"] = str(merged["position"]); merged["pages"] = str(merged["pages"])
     for k in ("grayscale", "black_white", "remove_background"): merged[k] = bool(merged[k])
     merged["raster_width"] = max(200, min(8000, int(merged["raster_width"])))
+    merged["invert"] = merged["invert"] if merged["invert"] in ("auto", True, False) else "auto"
     return merged
 
 
@@ -87,7 +88,7 @@ def _image_xobject(rgb: bytes, w: int, h: int) -> StreamObject:
 def apply_watermark(pdf_path: Path, cfg: dict) -> Path:
     from .watermark_image import prepare
     cache = CACHE_DIR or cfg["image"].parent / ".papyra-cache"
-    image = prepare(cfg["image"], cache, cfg["grayscale"], cfg["black_white"], cfg["remove_background"], cfg["raster_width"])
+    image = prepare(cfg["image"], cache, cfg["grayscale"], cfg["black_white"], cfg["remove_background"], cfg["raster_width"], invert=cfg["invert"])
     rgb, iw, ih = _washed_rgb(image, cfg["opacity"])
     reader = PdfReader(pdf_path); writer = PdfWriter()
     xobject = None

@@ -73,7 +73,7 @@ export function DocumentForm() {
   return (
     <Form form={form} layout="vertical" initialValues={state.values} onValuesChange={persist} scrollToFirstError requiredMark autoComplete="off">
       {serverErrors?.length ? <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="The document engine rejected some values" description="The fields are marked below." /> : null}
-      <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
+      <Space orientation="vertical" size="small" style={{ width: "100%" }}>
         {prefillButton && <Space style={{ width: "100%", justifyContent: "space-between" }} wrap>
           <Typography.Text type="secondary">Fill in the details below, or start from the template's example values and edit them.</Typography.Text>
           {prefillButton}

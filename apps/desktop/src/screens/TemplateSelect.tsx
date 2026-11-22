@@ -42,14 +42,14 @@ export function TemplateSelect() {
           <Button size="small" icon={<ReloadOutlined />} loading={busy} onClick={() => load(true)}>Rescan templates</Button>
         </Space>
       </Space>
-      <Row gutter={[16, 16]}>
+      <Row gutter={[12, 12]}>
         {templates.map((t) => {
           const fields = t.groups.flatMap((g) => g.fields);
           const required = fields.filter((f) => f.required);
           const broken = t.status === "error";
           return (
-            <Col xs={24} md={12} key={`${t.id}-${t.source}`}>
-              <Card className="glass" title={<Space>{!broken && <Checkbox checked={picked.includes(t.id)} onChange={(e) => toggle(t.id, e.target.checked)} aria-label={`Select ${t.name}`} />}{t.name}{t.source === "user" && <Tag color="purple">my template</Tag>}{broken && <Tag color="red">needs fixing</Tag>}</Space>} extra={<Tag>v{t.version}</Tag>}
+            <Col xs={24} md={12} lg={8} key={`${t.id}-${t.source}`}>
+              <Card className="glass" size="small" styles={{ body: { padding: 12 } }} title={<Space>{!broken && <Checkbox checked={picked.includes(t.id)} onChange={(e) => toggle(t.id, e.target.checked)} aria-label={`Select ${t.name}`} />}{t.name}{t.source === "user" && <Tag color="purple">my template</Tag>}{broken && <Tag color="red">needs fixing</Tag>}</Space>} extra={<Tag>v{t.version}</Tag>}
                 actions={[broken
                   ? <Button key="fix" onClick={openFolder} icon={<FolderOpenOutlined />}>Open folder to fix</Button>
                   : <Button key="use" type="primary" onClick={() => dispatch({ type: "selectTemplate", template: t, values: defaultValues(t) })}>Use this template</Button>]}>
@@ -58,12 +58,11 @@ export function TemplateSelect() {
                     <ul style={{ margin: 0, paddingLeft: 18 }}>{t.problems.map((p, i) => <li key={i} style={{ fontFamily: "ui-monospace, monospace", fontSize: 12 }}>{p}</li>)}</ul>} />
                 ) : (
                   <>
-                    <Typography.Paragraph>{t.description}</Typography.Paragraph>
-                    <Typography.Text type="secondary">{fields.length} inputs, {countRequired(t)} required:</Typography.Text>
-                    <div style={{ marginTop: 8 }}>{required.map((f) => <Tag key={f.id} color="blue">{f.label}</Tag>)}</div>
+                    <Typography.Paragraph type="secondary" ellipsis={{ rows: 2 }} style={{ marginBottom: 6, fontSize: 12 }}>{t.description}</Typography.Paragraph>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>{fields.length} inputs · {countRequired(t)} required · {required.slice(0, 4).map((f) => f.label).join(", ")}{required.length > 4 ? "…" : ""}</Typography.Text>
                   </>
                 )}
-                <Typography.Text type="secondary" style={{ display: "block", marginTop: 8, fontSize: 11 }}>{t.dir}</Typography.Text>
+                {broken && <Typography.Text type="secondary" style={{ display: "block", marginTop: 6, fontSize: 11 }}>{t.dir}</Typography.Text>}
               </Card>
             </Col>
           );
