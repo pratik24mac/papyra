@@ -40,7 +40,7 @@ export function Preview() {
   const stale = info?.state.pdf_stale ?? false;
 
   return (
-    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
       {stale && (
         <Alert type="warning" showIcon message="The Word document was changed after this PDF was created"
           description="To avoid attaching an outdated PDF, regenerate it from the current Word document before continuing."

@@ -62,7 +62,7 @@ export function Email() {
   };
 
   return (
-    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
       {stale && <Alert type="warning" showIcon message="The PDF is out of date" description="Go back to Preview and regenerate the PDF before preparing the email." />}
       <Card className="glass" title="Attachment">
         <Descriptions column={1} bordered size="small">

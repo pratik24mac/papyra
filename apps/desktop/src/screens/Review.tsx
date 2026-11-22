@@ -29,7 +29,7 @@ export function Review() {
   const t = state.template!;
   const ready = state.backend.state === "ready";
   return (
-    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
       <Typography.Paragraph type="secondary">Check the details below. Nothing has been generated yet.</Typography.Paragraph>
       {t.groups.map((g) => (
         <Card className="glass" key={g.id} title={g.label} extra={<Button size="small" onClick={() => dispatch({ type: "step", step: 1 })}>Edit</Button>}>

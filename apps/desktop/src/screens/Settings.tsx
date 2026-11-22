@@ -39,7 +39,7 @@ export function Settings() {
   };
   const ok = (b: boolean, yes = "OK", no = "Problem") => <Tag color={b ? "green" : "red"}>{b ? yes : no}</Tag>;
   return (
-    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
       <Typography.Title level={3} style={{ marginTop: 0 }}>Settings</Typography.Title>
       <Card className="glass" title="Diagnostics" extra={<Button icon={<ReloadOutlined />} loading={loading} onClick={refresh}>Re-check</Button>}>
         {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 12 }} />}

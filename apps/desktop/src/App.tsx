@@ -23,8 +23,8 @@ function Wizard() {
   const screen = [<TemplateSelect />, <DocumentForm />, <Review />, <Generate />, <Preview />, <Email />][state.step];
   return (
     <div>
-      <Typography.Title level={3} style={{ marginTop: 0, fontWeight: 700 }}>New document</Typography.Title>
-      <Steps current={state.step} items={steps} style={{ marginBottom: 24 }} />
+      <Typography.Title level={4} style={{ marginTop: 0, marginBottom: 10, fontWeight: 700 }}>New document</Typography.Title>
+      <Steps current={state.step} items={steps} size="small" style={{ marginBottom: 16 }} />
       {state.step > 0 && !state.template ? <TemplateSelect /> : screen}
     </div>
   );
@@ -73,10 +73,13 @@ export default function App() {
   return (
     <ConfigProvider theme={{
       algorithm: theme.darkAlgorithm,
-      token: { colorPrimary: "#0a84ff", borderRadius: 12, fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif',
+      token: { colorPrimary: "#0a84ff", borderRadius: 10, fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif',
                colorBgBase: "#0a0a0c", colorBgContainer: "rgba(28,28,30,0.72)", colorBgElevated: "#2c2c2e", colorBorder: "rgba(255,255,255,0.10)", colorBorderSecondary: "rgba(255,255,255,0.08)",
-               colorText: "#f5f5f7", colorTextSecondary: "#a1a1a6", controlHeight: 36 },
-      components: { Card: { headerBg: "transparent" }, Segmented: { itemSelectedBg: "rgba(255,255,255,0.14)", trackBg: "rgba(255,255,255,0.06)" } },
+               colorText: "#f5f5f7", colorTextSecondary: "#a1a1a6", controlHeight: 32, fontSize: 13, marginLG: 16, paddingLG: 16 },
+      components: { Card: { headerBg: "transparent", bodyPadding: 14, headerPadding: 14, headerHeight: 42, headerFontSize: 14 },
+                    Form: { itemMarginBottom: 10, verticalLabelPadding: "0 0 4px", labelFontSize: 12 },
+                    Descriptions: { itemPaddingBottom: 6 },
+                    Segmented: { itemSelectedBg: "rgba(255,255,255,0.14)", trackBg: "rgba(255,255,255,0.06)" } },
     }}>
       <StoreProvider>
         <Shell />

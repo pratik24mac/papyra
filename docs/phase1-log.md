@@ -383,3 +383,10 @@ ramp). Results cached by source hash + options in `<data>/watermark-cache`. Sche
   templates; staged into the bundle; user root supports it too). Linter S006 uses the same rule.
 * Printed dates containing an ordinal get a superscript suffix run (`ooxml.superscript_ordinals`),
   tracked per render incl. the `date` filter; `template.ordinal_superscript: false` disables.
+
+## 2026-11-23 — Step B: compact layout
+Tighter theme tokens (control height 32, font 13, card/body padding 14, form item margin 10,
+small Steps), smaller tiles, top bar 48 px, content padding reduced; short fields (text, email,
+url, date, number, select, checkbox) sit two per row via `lib/layout.tsx` `FieldGrid`, also
+inside repeating-group cards; multiline and lists keep the full width. Preview launch config
+`desktop-web-5175` added for screenshots when 5173 is busy.

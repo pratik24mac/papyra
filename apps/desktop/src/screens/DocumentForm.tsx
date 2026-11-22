@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Alert, Button, Card, Form, Modal, Space, Typography, message } from "antd";
 import { ExperimentOutlined } from "@ant-design/icons";
 import { backend } from "../api/backend";
-import { FieldRenderer } from "../components/FieldRenderer";
+import { FieldGrid } from "../lib/layout";
 import { describeError } from "../lib/errors";
 import { defaultValues, expandDefault, parseServerError } from "../lib/schema";
 import { useStore } from "../store";
@@ -62,14 +62,14 @@ export function DocumentForm() {
   return (
     <Form form={form} layout="vertical" initialValues={state.values} onValuesChange={persist} scrollToFirstError requiredMark autoComplete="off">
       {serverErrors?.length ? <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="The document engine rejected some values" description="The fields are marked below." /> : null}
-      <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+      <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
         {prefillButton && <Space style={{ width: "100%", justifyContent: "space-between" }} wrap>
           <Typography.Text type="secondary">Fill in the details below, or start from the template's example values and edit them.</Typography.Text>
           {prefillButton}
         </Space>}
         {t.groups.map((g) => (
           <Card className="glass" key={g.id} title={g.label} id={`group-${g.id}`} extra={g.print === false ? <Typography.Text type="secondary">Used for the email draft, not printed</Typography.Text> : null}>
-            {g.fields.map((f) => <FieldRenderer key={f.id} f={f} />)}
+            <FieldGrid fields={g.fields} />
           </Card>
         ))}
         <Space>

@@ -20,20 +20,20 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 .topbar {
-  position: sticky; top: 0; z-index: 10; height: 56px;
+  position: sticky; top: 0; z-index: 10; height: 48px;
   display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
   border-left: 0; border-right: 0; border-top: 0;
 }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; letter-spacing: -0.2px; cursor: pointer; }
 .brand-mark { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(135deg, #3b82f6, #1a4169); display: grid; place-items: center; font-size: 13px; color: #fff; }
-.content { padding: 28px clamp(16px, 4vw, 48px) 48px; max-width: 1180px; margin: 0 auto; }
-.hello { font-size: 34px; font-weight: 700; letter-spacing: -0.5px; margin: 8px 0 20px; }
-.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
-.tile { border-radius: 18px; padding: 20px; cursor: pointer; transition: transform .15s ease, background .15s ease; min-height: 150px; display: flex; flex-direction: column; justify-content: space-between; }
+.content { padding: 16px clamp(12px, 3vw, 32px) 32px; max-width: 1180px; margin: 0 auto; }
+.hello { font-size: 26px; font-weight: 700; letter-spacing: -0.4px; margin: 4px 0 12px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.tile { border-radius: 14px; padding: 14px; cursor: pointer; transition: transform .15s ease, background .15s ease; min-height: 112px; display: flex; flex-direction: column; justify-content: space-between; }
 .tile:hover { transform: translateY(-2px); background: rgba(44, 44, 46, 0.75); }
 .tile[aria-disabled="true"] { opacity: .55; cursor: not-allowed; transform: none; }
-.tile-icon { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; color: #fff; }
-.tile h3 { margin: 14px 0 4px; font-size: 17px; font-weight: 600; }
+.tile-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; font-size: 18px; color: #fff; }
+.tile h3 { margin: 10px 0 2px; font-size: 15px; font-weight: 600; }
 .tile p { margin: 0; color: #a1a1a6; font-size: 13px; line-height: 1.4; }
 .login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
 .login-card { width: 360px; border-radius: 22px; padding: 36px 32px 28px; text-align: center; }
@@ -41,3 +41,8 @@ body {
 .ant-card { border-radius: 16px !important; }
 .ant-btn { border-radius: 999px !important; }
 .ant-input, .ant-input-affix-wrapper, .ant-input-number, .ant-select-selector, .ant-picker { border-radius: 10px !important; }
+
+/* compact density */
+.ant-card .ant-card-head { min-height: 42px; }
+.ant-form-item .ant-form-item-explain, .ant-form-item .ant-form-item-extra { font-size: 11px; min-height: 0; }
+.ant-descriptions-small .ant-descriptions-item-label, .ant-descriptions-small .ant-descriptions-item-content { padding: 4px 10px !important; font-size: 12px; }

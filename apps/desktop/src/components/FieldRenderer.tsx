@@ -7,6 +7,7 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 dayjs.extend(customParseFormat);
 import type { FieldSchema } from "../api/types";
 import { emptyItem, rulesFor, type NamePath } from "../lib/schema";
+import { FieldGrid } from "../lib/layout";
 
 const { TextArea } = Input;
 
@@ -34,11 +35,11 @@ export function FieldRenderer({ f, prefix = [] }: { f: FieldSchema; prefix?: Nam
       <Form.Item label={f.label} required={!!f.required} tooltip={f.help}>
         <Form.List name={name} rules={[{ validator: rules[0]?.validator ?? (async () => {}) }]}>
           {(items, { add, remove }, { errors }) => (
-            <Space orientation="vertical" style={{ width: "100%" }} size="middle">
+            <Space orientation="vertical" style={{ width: "100%" }} size="small">
               {items.map((item, idx) => (
                 <Card key={item.key} size="small" title={`${f.label.replace(/s$/, "")} ${idx + 1}`}
                   extra={<Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(item.name)} aria-label={`Remove ${f.label} ${idx + 1}`} />}>
-                  {(f.item_fields ?? []).map((sf) => <FieldRenderer key={sf.id} f={sf} prefix={[item.name]} />)}
+                  <FieldGrid fields={f.item_fields ?? []} prefix={[item.name]} />
                 </Card>
               ))}
               <Button type="dashed" icon={<PlusOutlined />} onClick={() => add(emptyItem(f))} block disabled={!!f.validation?.max_items && items.length >= f.validation.max_items}>

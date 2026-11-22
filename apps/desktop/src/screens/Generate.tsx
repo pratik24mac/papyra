@@ -26,7 +26,7 @@ export function Generate() {
   });
 
   return (
-    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+    <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
       <Card className="glass" title="Generation progress">
         <Steps orientation="vertical" size="small" items={items} />
       </Card>
