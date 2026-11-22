@@ -49,10 +49,11 @@ class DraftSpec:
                          subject=subject, body=str(d.get("body") or ""), sender=sender)
 
 
-def build_message(spec: DraftSpec, attachment: Path, unsent: bool = False) -> EmailMessage:
-    size = attachment.stat().st_size
+def build_message(spec: DraftSpec, attachment: Path | list[Path], unsent: bool = False) -> EmailMessage:
+    attachments = [attachment] if isinstance(attachment, Path) else list(attachment)
+    size = sum(a.stat().st_size for a in attachments)
     if size > MAX_ATTACHMENT_BYTES:
-        raise EmailAttachmentTooLarge(data={"bytes": size, "limit": MAX_ATTACHMENT_BYTES})
+        raise EmailAttachmentTooLarge(data={"bytes": size, "limit": MAX_ATTACHMENT_BYTES, "files": len(attachments)})
     msg = EmailMessage(policy=policy.SMTP)
     if spec.sender:
         msg["From"] = spec.sender
@@ -65,5 +66,6 @@ def build_message(spec: DraftSpec, attachment: Path, unsent: bool = False) -> Em
     if unsent:
         msg["X-Unsent"] = "1"           # Outlook opens such .eml files as editable, unsent messages
     msg.set_content(spec.body or "", subtype="plain", charset="utf-8")
-    msg.add_attachment(attachment.read_bytes(), maintype="application", subtype="pdf", filename=attachment.name)
+    for a in attachments:
+        msg.add_attachment(a.read_bytes(), maintype="application", subtype="pdf", filename=a.name)
     return msg

@@ -78,9 +78,9 @@ pub struct Backend {
 }
 
 /// Methods the WebView is allowed to invoke. `system.shutdown` is deliberately absent.
-pub const ALLOWED_METHODS: &[&str] = &["system.ping", "system.diagnostics", "system.selfcheck", "templates.list", "templates.rescan", "templates.example_values", "docgen.generate", "docgen.convert_pdf", "jobs.get", "settings.get", "settings.set",
+pub const ALLOWED_METHODS: &[&str] = &["system.ping", "system.diagnostics", "system.selfcheck", "templates.list", "templates.rescan", "templates.example_values", "docgen.generate", "docgen.generate_batch", "batches.get", "docgen.convert_pdf", "jobs.get", "settings.get", "settings.set",
     "email.prepare_eml", "email.imap_get_account", "email.imap_test", "email.imap_save_account", "email.imap_remove_account", "email.create_imap_draft",
-    "history.list", "history.delete", "history.clear", "privacy.summary", "privacy.clear_logs", "privacy.cleanup", "network.check"];
+    "history.list", "history.delete", "history.delete_batch", "history.clear", "privacy.summary", "privacy.clear_logs", "privacy.cleanup", "network.check"];
 
 impl Backend {
     pub fn new() -> Self {

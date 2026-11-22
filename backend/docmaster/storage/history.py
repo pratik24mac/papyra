@@ -50,14 +50,20 @@ class History:
         self._conn.executescript(SCHEMA)
         if self._conn.execute("SELECT COUNT(*) FROM schema_version").fetchone()[0] == 0:
             self._conn.execute("INSERT INTO schema_version VALUES (?)", (SCHEMA_VERSION,))
+        cols = {r[1] for r in self._conn.execute("PRAGMA table_info(jobs)")}
+        for col in ("batch_id TEXT", "batch_dir TEXT", "template_name TEXT"):
+            if col.split()[0] not in cols:
+                self._conn.execute(f"ALTER TABLE jobs ADD COLUMN {col}")
 
     # ---- writes ----
-    def record_job(self, job_id, template_id, template_version, status, output_dir, docx_path=None, pdf_path=None, pages=None, error_code=None):
+    def record_job(self, job_id, template_id, template_version, status, output_dir, docx_path=None, pdf_path=None, pages=None, error_code=None,
+                   batch_id=None, batch_dir=None, template_name=None):
         with self._lock:
-            self._conn.execute("""INSERT INTO jobs(job_id, template_id, template_version, created_at, status, output_dir, docx_path, pdf_path, pages, error_code)
-                VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(job_id) DO UPDATE SET status=excluded.status, docx_path=excluded.docx_path,
-                pdf_path=excluded.pdf_path, pages=excluded.pages, error_code=excluded.error_code""",
-                (job_id, template_id, template_version, _now(), status, str(output_dir), docx_path and str(docx_path), pdf_path and str(pdf_path), pages, error_code))
+            self._conn.execute("""INSERT INTO jobs(job_id, template_id, template_version, created_at, status, output_dir, docx_path, pdf_path, pages, error_code, batch_id, batch_dir, template_name)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(job_id) DO UPDATE SET status=excluded.status, docx_path=excluded.docx_path,
+                pdf_path=excluded.pdf_path, pages=excluded.pages, error_code=excluded.error_code, batch_id=excluded.batch_id, batch_dir=excluded.batch_dir, template_name=excluded.template_name""",
+                (job_id, template_id, template_version, _now(), status, str(output_dir), docx_path and str(docx_path), pdf_path and str(pdf_path), pages, error_code,
+                 batch_id, batch_dir and str(batch_dir), template_name))
 
     def record_draft(self, job_id, mode, status, location=None) -> bool:
         """Returns False when the job is not in the history (history was off when it was generated)."""
@@ -80,6 +86,39 @@ class History:
             d["pdf_exists"] = bool(d["pdf_path"] and Path(d["pdf_path"]).exists())
             out.append(d)
         return out
+
+    def list_grouped(self, limit: int = 50, offset: int = 0) -> list[dict]:
+        """Like list(), but the documents of a batch collapse into one row with `documents`."""
+        rows = self.list(limit=500)
+        out: list[dict] = []; batches: dict[str, dict] = {}
+        for r in rows:
+            bid = r.get("batch_id")
+            if not bid:
+                out.append({**r, "kind": "job"}); continue
+            if bid not in batches:
+                batches[bid] = {"kind": "batch", "batch_id": bid, "job_id": bid, "created_at": r["created_at"], "output_dir": r["output_dir"],
+                                "batch_dir": r.get("batch_dir"), "documents": [], "template_id": "", "template_version": 0, "pages": 0,
+                                "drafts": 0, "status": "pdf_done", "docx_exists": True, "pdf_exists": True, "docx_path": None, "pdf_path": None, "error_code": None}
+                out.append(batches[bid])
+            b = batches[bid]; b["documents"].append(r)
+            b["pages"] = (b["pages"] or 0) + (r["pages"] or 0); b["drafts"] += r["drafts"]
+            b["docx_exists"] = b["docx_exists"] and r["docx_exists"]; b["pdf_exists"] = b["pdf_exists"] and r["pdf_exists"]
+            if r["status"] != "pdf_done": b["status"] = r["status"]
+            b["template_id"] = ", ".join(d.get("template_name") or d["template_id"] for d in b["documents"])
+        return out[offset:offset + max(1, min(limit, 500))]
+
+    def batch_dir(self, batch_id: str) -> Path | None:
+        with self._lock:
+            r = self._conn.execute("SELECT batch_dir FROM jobs WHERE batch_id=? LIMIT 1", (batch_id,)).fetchone()
+        return Path(r[0]) if r and r[0] else None
+
+    def delete_batch(self, batch_id: str, delete_files: bool) -> dict:
+        d = self.batch_dir(batch_id); removed_files = False
+        if delete_files and d and d.exists() and d.is_dir() and (d / "batch.json").exists():
+            shutil.rmtree(d, ignore_errors=True); removed_files = not d.exists()
+        with self._lock:
+            n = self._conn.execute("DELETE FROM jobs WHERE batch_id=?", (batch_id,)).rowcount
+        return {"batch_id": batch_id, "removed_rows": n, "removed_files": removed_files}
 
     def count(self) -> int:
         with self._lock:

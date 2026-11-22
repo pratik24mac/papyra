@@ -178,6 +178,16 @@ async fn selftest(app: AppHandle, templates: PathBuf) -> i32 {
     let t = Instant::now();
     let r2 = files::job_file(&app, &output_dir(&app), "selftest3", "pdf").await.map(|p| json!(p.to_string_lossy()));
     step(&mut ok, "save-to-path", t, &r2, r2.as_ref().map(|p| p.as_str().unwrap_or("").contains("save-to-elsewhere")).unwrap_or(false));
+    let t = Instant::now();
+    let r2 = backend.call("docgen.generate_batch", json!({ "templates": ["resume-ats", "resume-ats"], "values": values, "batch_id": "selftest-batch" }), Duration::from_secs(600)).await;
+    step(&mut ok, "batch", t, &r2, r2.as_ref().map(|v| v["ok"] == true && v["documents"].as_array().map(|a| a.len() == 2).unwrap_or(false)).unwrap_or(false));
+    let batch_job = r2.as_ref().ok().and_then(|v| v["documents"][1]["job_id"].as_str().map(String::from)).unwrap_or_default();
+    let t = Instant::now();
+    let r2 = files::job_file(&app, &output_dir(&app), &batch_job, "pdf").await.map(|p| json!(p.to_string_lossy()));
+    step(&mut ok, "batch-path", t, &r2, r2.is_ok());
+    let t = Instant::now();
+    let r2 = backend.call("history.list", json!({}), Duration::from_secs(20)).await;
+    step(&mut ok, "batch-history", t, &r2, r2.as_ref().map(|v| v["jobs"].as_array().map(|a| a.iter().any(|j| j["kind"] == "batch" && j["documents"].as_array().map(|d| d.len() == 2).unwrap_or(false))).unwrap_or(false)).unwrap_or(false));
     let sub = output_dir(&app).join("chosen-folder");
     let t = Instant::now();
     let r2 = backend.call("settings.set", json!({ "key": "output_dir", "value": sub.to_string_lossy() }), Duration::from_secs(20)).await;

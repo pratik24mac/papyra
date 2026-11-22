@@ -77,8 +77,9 @@ class JobRecord:
 
 
 class JobStore:
-    """Jobs live in `<output_dir>/<job_id>/` by default; a job may be saved elsewhere ("Save to"),
-    so an index file (`jobs-index.json` in the data dir, ids and folders only) remembers where."""
+    """A single job lives in `<output_dir>/<job_id>/job.json`; the documents of a batch share one
+    folder and keep their records in `<batch>/.jobs/<job_id>.json`. `jobs-index.json` (ids and
+    record paths only) in the data dir remembers where every job is, wherever it was saved."""
 
     def __init__(self, output_dir: Path, index_path: Path | None = None):
         self.output_dir = output_dir
@@ -88,14 +89,27 @@ class JobStore:
             try: self._index = {k: v for k, v in json.loads(index_path.read_text(encoding="utf8")).items() if isinstance(v, str)}
             except (OSError, ValueError): self._index = {}
 
-    def dir(self, job_id: str, base: Path | None = None) -> Path:
-        check_job_id(job_id)
-        if base is None and job_id in self._index:
-            return Path(self._index[job_id])
-        return (base or self.output_dir) / job_id
+    # ---- locations ----
+    def default_record(self, job_id: str, base: Path | None = None) -> Path:
+        return (base or self.output_dir) / check_job_id(job_id) / "job.json"
 
-    def remember(self, job_id: str, folder: Path) -> None:
-        self._index[check_job_id(job_id)] = str(folder)
+    def record_path(self, job_id: str) -> Path:
+        check_job_id(job_id)
+        v = self._index.get(job_id)
+        if v:
+            p = Path(v)
+            return p if p.suffix == ".json" else p / "job.json"      # older index entries stored the folder
+        return self.default_record(job_id)
+
+    def dir(self, job_id: str, base: Path | None = None) -> Path:
+        """The folder holding the job's files."""
+        if base is not None:
+            return base / check_job_id(job_id)
+        rec = self.record_path(job_id)
+        return rec.parent.parent if rec.parent.name == ".jobs" else rec.parent
+
+    def remember(self, key: str, path: Path) -> None:
+        self._index[key] = str(path)
         if self.index_path:
             try:
                 self.index_path.parent.mkdir(parents=True, exist_ok=True)
@@ -103,20 +117,40 @@ class JobStore:
             except OSError:
                 pass
 
-    def save(self, rec: JobRecord, base: Path | None = None) -> None:
-        d = self.dir(rec.job_id, base); d.mkdir(parents=True, exist_ok=True)
-        tmp = d / "job.json.tmp"
+    # ---- records ----
+    def save(self, rec: JobRecord, base: Path | None = None, record_path: Path | None = None) -> None:
+        p = record_path or (self.default_record(rec.job_id, base) if base is not None else self.record_path(rec.job_id))
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_suffix(".json.tmp")
         tmp.write_text(json.dumps(asdict(rec), indent=1), encoding="utf8")
-        tmp.replace(d / "job.json")
-        self.remember(rec.job_id, d)
+        tmp.replace(p)
+        self.remember(rec.job_id, p)
 
     def load(self, job_id: str) -> JobRecord:
-        p = self.dir(job_id) / "job.json"
-        if not p.exists() and job_id in self._index:            # indexed folder gone: fall back to the default location
-            p = self.output_dir / job_id / "job.json"
+        p = self.record_path(job_id)
+        if not p.exists():
+            p = self.default_record(job_id)                       # indexed location gone: default place
         if not p.exists():
             raise JobNotFound(data={"job_id": job_id})
         try:
             return JobRecord(**json.loads(p.read_text(encoding="utf8")))
         except (ValueError, TypeError) as e:
             raise JobNotFound(f"job record unreadable: {e}", data={"job_id": job_id})
+
+    # ---- batches ----
+    def save_batch(self, batch: dict) -> Path:
+        d = Path(batch["dir"]); d.mkdir(parents=True, exist_ok=True)
+        p = d / "batch.json"; tmp = d / "batch.json.tmp"
+        tmp.write_text(json.dumps(batch, indent=1), encoding="utf8"); tmp.replace(p)
+        self.remember(f"batch:{check_job_id(batch['batch_id'])}", p)
+        return p
+
+    def load_batch(self, batch_id: str) -> dict:
+        v = self._index.get(f"batch:{check_job_id(batch_id)}")
+        p = Path(v) if v else None
+        if p is None or not p.exists():
+            raise JobNotFound(data={"batch_id": batch_id})
+        try:
+            return json.loads(p.read_text(encoding="utf8"))
+        except ValueError as e:
+            raise JobNotFound(f"batch record unreadable: {e}", data={"batch_id": batch_id})

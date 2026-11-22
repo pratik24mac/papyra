@@ -15,7 +15,7 @@ from ..email.mime import DraftSpec
 from ..email.eml import write_eml
 from ..email import imap_draft
 from ..secrets.credential_store import CredentialStore
-from ..errors import EmailAccountMissing, PdfStale, OutputPathError
+from ..errors import EmailAccountMissing, PdfStale, OutputPathError, DocMasterError, ValidationError
 from datetime import datetime, timezone
 from ..errors import PdfConversionFailed, PdfInvalid
 from docx import Document
@@ -97,25 +97,24 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         settings.set("last_output_dir", str(p.resolve()))
         return p.resolve()
 
-    def docgen_generate(ctx, template_id: str, values: dict, job_id: str | None = None, output_dir: str | None = None):
-        job_id = job_id or uuid.uuid4().hex
-        t0 = time.monotonic()
-        tpl = catalogue.get(template_id)
-        meta = tpl.schema["template"]
-        ctx.progress(job_id=job_id, stage="validating", message="Checking values")
-        validate(tpl.schema, values)                     # fail before anything touches the disk
-        base_dir = _target_dir(output_dir)
-        out_dir = ensure_dir(base_dir / job_id)
+    def _generate_document(ctx, tpl, values: dict, job_id: str, out_dir: Path, base_dir: Path, record_path: Path | None = None,
+                           batch: dict | None = None, progress_extra: dict | None = None):
+        """One document into `out_dir` (its own job folder, or the shared batch folder)."""
+        extra = progress_extra or {}
+        meta = tpl.schema["template"]; template_id = tpl.id
+        keep = settings.all().get("keep_history", True)
+        hist_batch = {"batch_id": batch["batch_id"], "batch_dir": batch["dir"]} if batch else {}
         stem = filename_from_pattern(meta.get("output_filename", "{date}-" + template_id), values)
         docx_path = unique_path(out_dir, stem, ".docx")
-        ctx.progress(job_id=job_id, stage="rendering_docx", message="Generating Word document")
+        ctx.progress(job_id=job_id, stage="rendering_docx", message="Generating Word document", **extra)
         render_docx(tpl.docx, tpl.schema, values, docx_path, default_date_format=settings.all().get("date_format"))
         d = Document(docx_path); set_document_properties(d, f"{meta['name']} — {stem}", subject=meta["name"]); d.save(docx_path)
-        rec = JobRecord.new(job_id, template_id, tpl.version, docx_path, meta.get("expected_pages")); current_jobs().save(rec, base_dir)
-        if settings.all().get("keep_history", True): history.record_job(job_id, template_id, tpl.version, "docx_done", base_dir, docx_path)
-        ctx.progress(job_id=job_id, stage="docx_done", message="Word document created", docx_path=str(docx_path))
+        rec = JobRecord.new(job_id, template_id, tpl.version, docx_path, meta.get("expected_pages"))
+        current_jobs().save(rec, base_dir if record_path is None else None, record_path)
+        if keep: history.record_job(job_id, template_id, tpl.version, "docx_done", base_dir, docx_path, template_name=meta.get("name"), **hist_batch)
+        ctx.progress(job_id=job_id, stage="docx_done", message="Word document created", docx_path=str(docx_path), **extra)
         ctx.progress(job_id=job_id, stage="converting_pdf", message="Converting to PDF" if libreoffice.profile_is_warm()
-                     else "Starting LibreOffice for the first time on this computer; this can take a few minutes once")
+                     else "Starting LibreOffice for the first time on this computer; this can take a few minutes once", **extra)
         try:
             pdf_path, seconds = convert_to_pdf(docx_path, find_soffice(soffice_override))
             wm = config_from_schema(tpl.schema, tpl.dir)
@@ -125,15 +124,81 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         except (PdfConversionFailed, PdfInvalid) as e:
             e.data.setdefault("docx_path", str(docx_path)); e.data["job_id"] = job_id
             rec.status, rec.error = "pdf_failed", {"code": e.code, "message": str(e)}; current_jobs().save(rec)
-            if settings.all().get("keep_history", True): history.record_job(job_id, template_id, tpl.version, "pdf_failed", base_dir, docx_path, error_code=e.code)
+            if keep: history.record_job(job_id, template_id, tpl.version, "pdf_failed", base_dir, docx_path, error_code=e.code, template_name=meta.get("name"), **hist_batch)
             raise
         rec.set_pdf(pdf_path, pages); current_jobs().save(rec)
-        if settings.all().get("keep_history", True): history.record_job(job_id, template_id, tpl.version, "pdf_done", base_dir, docx_path, pdf_path, pages)
-        ctx.progress(job_id=job_id, stage="pdf_done", message=f"PDF created ({pages} pages)", pdf_path=str(pdf_path))
-        return {"job_id": job_id, "template_id": template_id, "template_version": tpl.version,
+        if keep: history.record_job(job_id, template_id, tpl.version, "pdf_done", base_dir, docx_path, pdf_path, pages, template_name=meta.get("name"), **hist_batch)
+        ctx.progress(job_id=job_id, stage="pdf_done", message=f"PDF created ({pages} pages)", pdf_path=str(pdf_path), **extra)
+        return {"job_id": job_id, "template_id": template_id, "template_version": tpl.version, "template_name": meta.get("name"),
                 "docx_path": str(docx_path), "pdf_path": str(pdf_path), "pages": pages,
-                "docx_sha256": rec.docx_sha256, "pdf_sha256": rec.pdf_sha256,
-                "pdf_seconds": round(seconds, 2), "total_ms": int((time.monotonic() - t0) * 1000)}
+                "docx_sha256": rec.docx_sha256, "pdf_sha256": rec.pdf_sha256, "pdf_seconds": round(seconds, 2)}
+
+    def docgen_generate(ctx, template_id: str, values: dict, job_id: str | None = None, output_dir: str | None = None):
+        job_id = job_id or uuid.uuid4().hex
+        t0 = time.monotonic()
+        tpl = catalogue.get(template_id)
+        ctx.progress(job_id=job_id, stage="validating", message="Checking values")
+        validate(tpl.schema, values)                     # fail before anything touches the disk
+        base_dir = _target_dir(output_dir)
+        out_dir = ensure_dir(base_dir / job_id)
+        result = _generate_document(ctx, tpl, values, job_id, out_dir, base_dir)
+        return result | {"total_ms": int((time.monotonic() - t0) * 1000)}
+
+    PERSON_KEYS = ("full_name", "employee_name", "client_name", "name", "company_name")
+
+    def docgen_generate_batch(ctx, templates: list, values: dict, values_by_template: dict | None = None,
+                              batch_id: str | None = None, output_dir: str | None = None):
+        """Every selected template from one set of values, into one folder per batch.
+        A failing document does not stop the others; the result lists each document's status."""
+        if not templates or not isinstance(templates, list):
+            raise ValidationError("choose at least one template", data={"errors": ["templates: empty"]})
+        batch_id = batch_id or uuid.uuid4().hex
+        t0 = time.monotonic()
+        tpls = [catalogue.get(str(t)) for t in templates]
+        per = values_by_template or {}
+        merged = {t.id: {**values, **(per.get(t.id) or {})} for t in tpls}
+        ctx.progress(job_id=batch_id, stage="validating", message=f"Checking values for {len(tpls)} documents")
+        for t in tpls:
+            try: validate(t.schema, merged[t.id])
+            except ValidationError as e:
+                e.data["template_id"] = t.id; e.data["template_name"] = t.schema["template"].get("name"); raise
+        base_dir = _target_dir(output_dir)
+        person = next((str(values.get(k)).strip() for k in PERSON_KEYS if str(values.get(k) or "").strip()), "") or batch_id[:8]
+        from ..storage.paths import safe_stem
+        from datetime import date as _date
+        stem = safe_stem(f"{person}-{_date.today().isoformat()}")
+        batch_dir = base_dir / stem; n = 2
+        while batch_dir.exists():
+            batch_dir = base_dir / f"{stem} ({n})"; n += 1
+        ensure_dir(batch_dir); ensure_dir(batch_dir / ".jobs")
+        batch = {"batch_id": batch_id, "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "dir": str(batch_dir),
+                 "person": person, "documents": []}
+        current_jobs().save_batch(batch)
+        docs = []
+        for i, t in enumerate(tpls):
+            job_id = uuid.uuid4().hex
+            extra = {"batch_id": batch_id, "document": t.id, "document_name": t.schema["template"].get("name"), "index": i, "total": len(tpls), "doc_job_id": job_id}
+            try:
+                r = _generate_document(ctx, t, merged[t.id], job_id, batch_dir, base_dir, batch_dir / ".jobs" / f"{job_id}.json", batch, extra)
+                docs.append({**r, "status": "pdf_done"})
+            except DocMasterError as e:
+                log.warning("batch %s: %s failed: %s %s", batch_id, t.id, e.code, e)
+                docs.append({"job_id": job_id, "template_id": t.id, "template_name": t.schema["template"].get("name"), "status": "failed",
+                             "docx_path": e.data.get("docx_path"), "pdf_path": None, "pages": None, "error": {"code": e.code, "message": str(e), "data": e.data}})
+                ctx.progress(job_id=job_id, stage="failed", message=f"{t.schema['template'].get('name')}: {e}", **extra)
+        batch["documents"] = docs; current_jobs().save_batch(batch)
+        ok = all(d["status"] == "pdf_done" for d in docs)
+        ctx.progress(job_id=batch_id, stage="batch_done", message=f"{sum(d['status'] == 'pdf_done' for d in docs)} of {len(docs)} documents ready")
+        return {"batch_id": batch_id, "batch_dir": str(batch_dir), "person": person, "ok": ok, "documents": docs,
+                "total_ms": int((time.monotonic() - t0) * 1000)}
+
+    def batches_get(ctx, batch_id: str):
+        batch = current_jobs().load_batch(batch_id)
+        for d in batch.get("documents", []):
+            if d.get("status") == "pdf_done":
+                try: d["state"] = current_jobs().load(d["job_id"]).current_state()
+                except DocMasterError: d["state"] = {"pdf_stale": True, "pdf_exists": False, "docx_exists": False, "docx_changed": False, "pdf_changed": False}
+        return batch
 
     def jobs_get(ctx, job_id: str):
         """Current state of a job's files: used before preview/email to refuse a stale PDF."""
@@ -189,14 +254,23 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
     def _record_draft(rec, entry: dict):
         rec.drafts.append({"created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), **entry}); current_jobs().save(rec)
 
-    def email_prepare_eml(ctx, job_id: str, message: dict):
-        rec = _fresh_pdf_job(job_id)
+    def _jobs_for(job_id, job_ids):
+        ids = [j for j in (job_ids or []) if j] or ([job_id] if job_id else [])
+        if not ids:
+            raise ValidationError("no document selected", data={"errors": ["job_id: required"]})
+        return [_fresh_pdf_job(j) for j in ids]
+
+    def email_prepare_eml(ctx, message: dict, job_id: str | None = None, job_ids: list | None = None):
+        recs = _jobs_for(job_id, job_ids); rec = recs[0]
         acct = settings.all().get("imap_account")
         spec = DraftSpec.from_dict(message, sender=(acct or {}).get("email"))
-        path = write_eml(spec, Path(rec.pdf_path))
-        rec.eml_path = str(path); _record_draft(rec, {"mode": "eml", "status": "saved", "path": str(path)})
-        if settings.all().get("keep_history", True): history.record_draft(job_id, "eml", "saved", str(path))
-        return {"job_id": job_id, "eml_path": str(path), "bytes": path.stat().st_size, "attachment": Path(rec.pdf_path).name}
+        path = write_eml(spec, [Path(r.pdf_path) for r in recs])
+        for r in recs:
+            r.eml_path = str(path); _record_draft(r, {"mode": "eml", "status": "saved", "path": str(path)})
+        if settings.all().get("keep_history", True):
+            for r in recs: history.record_draft(r.job_id, "eml", "saved", str(path))
+        return {"job_id": rec.job_id, "job_ids": [r.job_id for r in recs], "eml_path": str(path), "bytes": path.stat().st_size,
+                "attachment": Path(rec.pdf_path).name, "attachments": [Path(r.pdf_path).name for r in recs]}
 
     def email_imap_get_account(ctx):
         acct = settings.all().get("imap_account")
@@ -228,7 +302,7 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
             settings.set("imap_account", None)
         return {"configured": False}
 
-    def email_create_imap_draft(ctx, job_id: str, message: dict):
+    def email_create_imap_draft(ctx, message: dict, job_id: str | None = None, job_ids: list | None = None):
         sync_offline()
         acct_d = settings.all().get("imap_account")
         if not acct_d:
@@ -237,18 +311,24 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         pw = creds.get(f"imap:{acct.email}")
         if pw is None:
             raise EmailAccountMissing("the mailbox password is missing from the credential store")
-        rec = _fresh_pdf_job(job_id)
+        recs = _jobs_for(job_id, job_ids); rec = recs[0]
         spec = DraftSpec.from_dict(message, sender=acct.email)
         from ..email.mime import build_message
-        ctx.progress(job_id=job_id, stage="email_connecting", message=f"Connecting to {acct.host}")
-        res = imap_draft.append_draft(acct, pw, build_message(spec, Path(rec.pdf_path)), factory=imap_factory)
-        _record_draft(rec, {"mode": "imap", "status": "saved", "folder": res["folder"], "uid": res.get("uid"), "account": acct.email})
-        if settings.all().get("keep_history", True): history.record_draft(job_id, "imap", "saved", res["folder"])
-        return {"job_id": job_id, "account": acct.email, **res, "attachment": Path(rec.pdf_path).name}
+        ctx.progress(job_id=rec.job_id, stage="email_connecting", message=f"Connecting to {acct.host}")
+        res = imap_draft.append_draft(acct, pw, build_message(spec, [Path(r.pdf_path) for r in recs]), factory=imap_factory)
+        for r in recs:
+            _record_draft(r, {"mode": "imap", "status": "saved", "folder": res["folder"], "uid": res.get("uid"), "account": acct.email})
+            if settings.all().get("keep_history", True): history.record_draft(r.job_id, "imap", "saved", res["folder"])
+        return {"job_id": rec.job_id, "job_ids": [r.job_id for r in recs], "account": acct.email, **res,
+                "attachment": Path(rec.pdf_path).name, "attachments": [Path(r.pdf_path).name for r in recs]}
 
     # ---------------- history / privacy / network ----------------
     def history_list(ctx, limit: int = 50, offset: int = 0):
-        return {"jobs": history.list(limit, offset), "total": history.count()}
+        return {"jobs": history.list_grouped(limit, offset), "total": history.count()}
+
+    def history_delete_batch(ctx, batch_id: str, delete_files: bool = False):
+        from ..storage.jobs import check_job_id
+        return history.delete_batch(check_job_id(batch_id), bool(delete_files))
 
     def history_delete(ctx, job_id: str, delete_files: bool = False):
         from ..storage.jobs import check_job_id
@@ -296,11 +376,11 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         return net.check_reachability(acct["host"], int(acct["port"]))
 
     return {"system.ping": system_ping, "settings.get": settings_get, "settings.set": settings_set,
-            "history.list": history_list, "history.delete": history_delete, "history.clear": history_clear,
+            "history.list": history_list, "history.delete": history_delete, "history.delete_batch": history_delete_batch, "history.clear": history_clear,
             "privacy.summary": privacy_summary, "privacy.clear_logs": privacy_clear_logs, "privacy.cleanup": privacy_cleanup,
             "network.check": network_check,
             "email.prepare_eml": email_prepare_eml, "email.imap_get_account": email_imap_get_account,
             "email.imap_test": email_imap_test, "email.imap_save_account": email_imap_save_account,
             "email.imap_remove_account": email_imap_remove_account, "email.create_imap_draft": email_create_imap_draft, "system.shutdown": system_shutdown, "system.diagnostics": system_diagnostics,
-            "system.selfcheck": system_selfcheck, "templates.list": templates_list, "templates.rescan": templates_rescan, "templates.example_values": templates_example_values, "docgen.generate": docgen_generate,
+            "system.selfcheck": system_selfcheck, "templates.list": templates_list, "templates.rescan": templates_rescan, "templates.example_values": templates_example_values, "docgen.generate": docgen_generate, "docgen.generate_batch": docgen_generate_batch, "batches.get": batches_get,
             "docgen.convert_pdf": docgen_convert_pdf, "jobs.get": jobs_get}
