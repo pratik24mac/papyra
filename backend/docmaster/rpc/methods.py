@@ -4,7 +4,7 @@ import os, platform, sys, time, uuid
 from pathlib import Path
 from .. import __version__
 from ..docgen.ooxml import set_document_properties
-from ..docgen.render import render_docx, validate
+from ..docgen.render import render_docx, validate, normalise_values
 from ..storage.jobs import JobRecord, JobStore
 from ..storage.settings import Settings
 from ..storage.history import History
@@ -138,6 +138,7 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         t0 = time.monotonic()
         tpl = catalogue.get(template_id)
         ctx.progress(job_id=job_id, stage="validating", message="Checking values")
+        values = normalise_values(tpl.schema, values) if isinstance(values, dict) else values
         validate(tpl.schema, values)                     # fail before anything touches the disk
         base_dir = _target_dir(output_dir)
         out_dir = ensure_dir(base_dir / job_id)
@@ -156,7 +157,9 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         t0 = time.monotonic()
         tpls = [catalogue.get(str(t)) for t in templates]
         per = values_by_template or {}
-        merged = {t.id: {**values, **(per.get(t.id) or {})} for t in tpls}
+        if not isinstance(values, dict):
+            raise ValidationError(data={"errors": ["values: expected an object"]})
+        merged = {t.id: normalise_values(t.schema, {**values, **(per.get(t.id) or {})}) for t in tpls}
         ctx.progress(job_id=batch_id, stage="validating", message=f"Checking values for {len(tpls)} documents")
         for t in tpls:
             try: validate(t.schema, merged[t.id])

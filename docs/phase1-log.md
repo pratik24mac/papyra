@@ -441,3 +441,19 @@ and fails on any failing check.
   `tools/make_sample_templates.py --watermark <file>` installs a logo as `_assets/logo.<ext>`.
 * Layout: template grid 3 per row (lg), leaner cards (ellipsised description, counts, no tag
   cloud); short fields 3 per row on wide windows, Form item margin 6, card padding 12, header 38.
+
+## 2026-11-24 — Field `transform`; negative / boundary / edge test suite
+* `transform: upper | lower | title` on text, multiline, email, url and text_list items: applied
+  as the user types (Form.Item normalize) and by the engine (`normalise_values`, which also trims
+  whitespace and drops unknown keys) before validation and rendering. Linter S007 checks it.
+  Samples: invoice number in capitals, position in title case.
+* `tests/test_edge_cases.py` (53 cases): required/empty/whitespace, max_length at the boundary and
+  with Unicode and 100 k characters, wrong scalar types, number limits incl. inf and 10**30, invalid
+  and edge dates (Feb 29, year 9999), ordinal suffixes 1st–31st, select/email/url/pattern shapes,
+  list min/max items and item errors, error ordering, reserved ids, transforms, hostile filenames
+  (traversal, device names, control characters), job ids, watermark config clamping, RPC envelope
+  abuse. Frontend: boundary unit tests for form rules and defaults; e2e `edges.spec.ts` (typing
+  into a capitals field, max-length stop, invalid email, required list, whitespace-only name).
+* Bugs the suite found and fixed: an empty date format was accepted by Settings; a job id with a
+  trailing newline passed the regex (`$` matches before a final newline → `fullmatch`); the form's
+  required rule accepted whitespace-only text (now `whitespace: true`).

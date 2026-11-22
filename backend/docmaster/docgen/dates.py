@@ -34,6 +34,8 @@ def format_date(iso: str, fmt: str | None = None) -> str:
 
 def check_format(fmt: str) -> str:
     """Raise ValueError for a format that produces nothing useful."""
+    if not isinstance(fmt, str) or not fmt.strip():
+        raise ValueError("the date format is empty")
     out = format_date("2026-03-12", fmt)
     if not out or out == fmt and not _TOKEN.search(fmt) and "%" not in fmt:
         raise ValueError(f"'{fmt}' contains no date tokens")

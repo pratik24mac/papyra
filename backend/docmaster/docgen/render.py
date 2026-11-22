@@ -20,6 +20,37 @@ from .dates import FormattedDate, date_filter, format_date, DEFAULT_FORMAT, REND
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 SCALAR_TYPES = {"text", "multiline", "email", "url", "date", "number", "select", "checkbox"}
+TRANSFORMS = {"upper": str.upper, "lower": str.lower, "title": lambda s: " ".join(w[:1].upper() + w[1:] for w in s.split(" ")), "none": lambda s: s}
+TRANSFORM_TYPES = {"text", "multiline", "email", "url"}
+
+
+def _transform_value(f: dict, v):
+    """Apply the field's `transform` (upper/lower/title) to text values; also strips surrounding
+    whitespace. Used before validation so the stored and printed value is the canonical one."""
+    t = f.get("transform")
+    if not isinstance(v, str):
+        return v
+    v = v.strip() if f["type"] != "multiline" else v.strip("\n")
+    if t in TRANSFORMS and f["type"] in TRANSFORM_TYPES:
+        return TRANSFORMS[t](v)
+    return v
+
+
+def normalise_values(schema, values: dict) -> dict:
+    """Return a copy of `values` with transforms applied to every text field, including list
+    items and the fields of repeating groups. Unknown keys are dropped."""
+    out = {}
+    for f in schema_fields(schema):
+        v = values.get(f["id"])
+        if f["type"] == "text_list" and isinstance(v, list):
+            item = {**f.get("item", {}), "transform": f.get("transform") or f.get("item", {}).get("transform")}
+            out[f["id"]] = [_transform_value(item, x) if "type" in item else x for x in v]
+        elif f["type"] == "group_list" and isinstance(v, list):
+            subs = f.get("item_fields", [])
+            out[f["id"]] = [{**x, **{sf["id"]: _transform_value(sf, x.get(sf["id"])) for sf in subs if sf["id"] in x}} if isinstance(x, dict) else x for x in v]
+        else:
+            out[f["id"]] = _transform_value(f, v)
+    return out
 URL_RE = re.compile(r"^https?://[^\s]+$")
 RESERVED_IDS = set(dir(dict)) | {"loop", "r"}
 
@@ -87,11 +118,15 @@ def schema_fields(schema) -> list[dict]:
                 raise TemplateInvalid(f"field id '{sub['id']}' is reserved (shadows a dict attribute or Jinja name)")
             if sub["type"] not in SCALAR_TYPES | {"group_list", "text_list"}:
                 raise TemplateInvalid(f"field '{sub['id']}' has unknown type '{sub['type']}'")
+            if sub.get("transform") not in (None, *TRANSFORMS):
+                raise TemplateInvalid(f"field '{sub['id']}' has unknown transform '{sub.get('transform')}' (use upper, lower or title)")
     return fields
 
 
 def validate(schema, values) -> list[dict]:
     fields = schema_fields(schema)
+    if not isinstance(values, dict):
+        raise ValidationError(data={"errors": ["values: expected an object"]})
     errors: list[str] = []
     for f in fields:
         _check_field(f, values.get(f["id"]), f["id"], errors)

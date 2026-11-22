@@ -31,7 +31,7 @@ EMAIL_GROUP = {"id": "email_draft", "label": "Email draft", "print": False, "fie
 
 TEMPLATES = [
     {"id": "offer-letter", "name": "Offer letter", "date_format": "MMMM Do, YYYY", "wm": {"rotation": 30, "opacity": 0.12},
-     "fields": [("full_name", "Full name", "text"), ("email", "Email", "email"), ("position", "Position", "text"),
+     "fields": [("full_name", "Full name", "text"), ("email", "Email", "email"), ("position", "Position", "text", None, "title"),
                 ("joining_date", "Joining date", "date"), ("annual_salary", "Annual salary (INR)", "number"),
                 ("probation_months", "Probation", "select", ["3", "6"])],
      "body": [("H", "Offer of employment"), ("P", "Dear {{ full_name }},"),
@@ -52,7 +52,7 @@ TEMPLATES = [
               ("P", "{{ remarks }}"), ("P", "We wish them success in their future endeavours.")],
      "example": {"full_name": "Asha Verma", "email": "asha@example.com", "designation": "Senior Engineer", "start_date": "2021-07-01", "end_date": "2026-02-28", "remarks": "A dependable colleague who led the platform migration."}},
     {"id": "invoice", "name": "Invoice", "date_format": "DD/MM/YYYY", "wm": {"rotation": 0, "opacity": 0.08, "position": "top", "scale": 0.4},
-     "fields": [("full_name", "Client name", "text"), ("email", "Client email", "email"), ("invoice_number", "Invoice number", "text"),
+     "fields": [("full_name", "Client name", "text"), ("email", "Client email", "email"), ("invoice_number", "Invoice number", "text", None, "upper"),
                 ("invoice_date", "Invoice date", "date"), ("amount", "Amount (INR)", "number"), ("description", "Description", "multiline")],
      "body": [("H", "Invoice {{ invoice_number }}"), ("P", "Date: {{ invoice_date }}"), ("P", "Billed to: {{ full_name }} ({{ email }})"),
               ("P", "{{ description }}"), ("P", "Amount due: INR {{ amount }}"), ("P", "Due by {{ invoice_date | date(\"MMMM D, YYYY\") }} plus 30 days.")],
@@ -91,6 +91,7 @@ def build_schema(t: dict) -> dict:
         if ftype == "multiline": fd["validation"] = {"max_length": 1000}
         if ftype == "number": fd["validation"] = {"min": 0}
         if ftype == "select": fd["options"] = [{"value": v, "label": f"{v} months"} for v in f[3]]
+        if len(f) > 4 and f[4]: fd["transform"] = f[4]; fd["help"] = {"upper": "Entered in capitals", "title": "Each word capitalised", "lower": "Entered in lower case"}[f[4]]
         if ftype == "text_list": fd["validation"] = {"min_items": 1, "max_items": 10}; fd["item"] = {"type": "text", "validation": {"max_length": 200}}
         fields.append(fd)
     email = yaml.safe_load(yaml.safe_dump(EMAIL_GROUP)); email["fields"][1]["default"] = email["fields"][1]["default"].replace("{__name__}", t["name"])

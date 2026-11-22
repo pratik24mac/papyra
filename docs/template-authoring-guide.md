@@ -81,6 +81,10 @@ Set labels, `type`, `required`, `help`, `validation` (max_length, pattern, min/m
   used in the template is not installed on the machine converting it: use a common font or
   install the missing one.
 
+### Forcing capitals
+`transform: upper` (or `lower`, `title`) on a text field forces the case as the user types and in
+the generated document; it also applies to `text_list` items and fields inside repeating groups.
+
 ## 4. Test-render and check the PDF
 ```bash
 .venv/bin/python tools/lint_templates.py

@@ -50,6 +50,11 @@ def lint_template(docx: Path, schema: dict) -> list[Finding]:
                 f.append(Finding("S002", "error", f"field id '{sub['id']}' shadows a dict attribute / Jinja name", "schema.yaml"))
             if sub["type"] not in SCALAR_TYPES | {"group_list", "text_list"}:
                 f.append(Finding("S003", "error", f"field '{sub['id']}' has unknown type '{sub['type']}'", "schema.yaml"))
+            if sub.get("transform") is not None:
+                if sub["transform"] not in ("upper", "lower", "title", "none"):
+                    f.append(Finding("S007", "error", f"field '{sub['id']}' has unknown transform '{sub['transform']}' (upper, lower, title)", "schema.yaml"))
+                elif sub["type"] not in ("text", "multiline", "email", "url", "text_list"):
+                    f.append(Finding("S007", "warning", f"field '{sub['id']}': transform has no effect on type '{sub['type']}'", "schema.yaml"))
             if sub["type"] == "select" and not sub.get("options"):
                 f.append(Finding("S004", "error", f"select field '{sub['id']}' has no options", "schema.yaml"))
     wm = schema.get("template", {}).get("watermark")

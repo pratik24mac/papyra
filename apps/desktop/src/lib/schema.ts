@@ -6,6 +6,7 @@ export type NamePath = (string | number)[];
 
 export interface Rule {
   required?: boolean;
+  whitespace?: boolean;   // with required: whitespace-only text counts as empty
   max?: number;
   min?: number;
   pattern?: RegExp;
@@ -44,7 +45,7 @@ export function expandDefault(template: string, values: Values): string {
 export function rulesFor(f: FieldSchema): Rule[] {
   const rules: Rule[] = [];
   const v = f.validation ?? {};
-  if (f.required && f.type !== "checkbox" && f.type !== "group_list" && f.type !== "text_list") rules.push({ required: true, message: `${f.label} is required` });
+  if (f.required && f.type !== "checkbox" && f.type !== "group_list" && f.type !== "text_list") rules.push({ required: true, whitespace: true, message: `${f.label} is required` });
   if (f.type === "email") rules.push({ type: "email", message: "Enter a valid email address" });
   if (f.type === "url") rules.push({ pattern: /^https?:\/\/\S+$/, message: "Must start with http:// or https://" });
   if (v.max_length) rules.push({ max: v.max_length, message: `At most ${v.max_length} characters` });

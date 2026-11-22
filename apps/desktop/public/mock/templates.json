@@ -392,7 +392,9 @@
       "id": "recipient_name",
       "label": "Recipient name",
       "type": "text",
-      "required": true
+      "required": true,
+      "transform": "upper",
+      "help": "Entered in capitals"
      },
      {
       "id": "deadline",

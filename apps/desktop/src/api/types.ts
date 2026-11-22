@@ -26,6 +26,8 @@ export interface FieldSchema {
   default?: unknown;
   help?: string;
   validation?: FieldValidation;
+  /** text fields: force the case as the user types and in the document */
+  transform?: "upper" | "lower" | "title" | "none";
   options?: (SelectOption | string)[];
   /** group_list: the fields of each item */
   item_fields?: FieldSchema[];

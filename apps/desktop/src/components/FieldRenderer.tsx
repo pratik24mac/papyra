@@ -82,6 +82,11 @@ export function FieldRenderer({ f, prefix = [] }: { f: FieldSchema; prefix?: Nam
 
   const extra: Record<string, unknown> = {};
   if (f.type === "checkbox") extra.valuePropName = "checked";
+  if (f.transform && f.transform !== "none" && ["text", "multiline", "email", "url"].includes(f.type)) {
+    const fn = f.transform === "upper" ? (s: string) => s.toUpperCase() : f.transform === "lower" ? (s: string) => s.toLowerCase()
+             : (s: string) => s.replace(/(^|\s)(\S)/g, (m) => m.toUpperCase());
+    extra.normalize = (v: unknown) => (typeof v === "string" ? fn(v) : v);
+  }
   if (f.type === "date") {
     // only a real ISO date becomes a dayjs value; anything else (a typo in an example file, an
     // object) renders as empty instead of crashing the picker

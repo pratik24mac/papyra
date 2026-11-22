@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from ..errors import DocMasterError
 
-JOB_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+JOB_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")     # used with fullmatch: `$` would accept a trailing newline
 
 
 class JobNotFound(DocMasterError):
@@ -27,7 +27,7 @@ def sha256_of(path: Path) -> str:
 
 
 def check_job_id(job_id: str) -> str:
-    if not isinstance(job_id, str) or not JOB_ID_RE.match(job_id):
+    if not isinstance(job_id, str) or not JOB_ID_RE.fullmatch(job_id):
         raise JobNotFound(data={"job_id": str(job_id)[:80]})
     return job_id
 
