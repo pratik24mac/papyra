@@ -55,3 +55,31 @@ test("a failed document in a batch is reported, the others stay usable", async (
   await expect(page.locator(".ant-table-row", { hasText: "Resume (ATS-friendly)" }).getByText("failed", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Preview PDFs" })).toBeVisible();
 });
+
+test("batch preview has one tab per document and history shows the batch as one row", async ({ page }) => {
+  await signIn(page);
+  await page.getByLabel("Select Resume (ATS-friendly)").check();
+  await page.getByLabel("Select Cover note").check();
+  await page.getByRole("button", { name: "Generate 2 documents together" }).click();
+  await page.getByRole("button", { name: "Pre-fill with example values" }).first().click();
+  await page.getByLabel("Recipient name").fill("Hiring team"); await page.getByLabel("Note text").fill("See attached.");
+  await page.locator(".ant-select", { has: page.locator("input#headline__cover-note") }).click();
+  await page.locator(".ant-select-item-option", { hasText: "Formal" }).click();
+  await page.getByRole("button", { name: "Review details" }).click();
+  await page.getByRole("button", { name: "Generate document" }).click();
+  await page.getByRole("button", { name: "Preview PDFs" }).click({ timeout: 15_000 });
+  const tabs = page.getByRole("tab");
+  await expect(tabs).toHaveCount(2);
+  await expect(tabs.nth(0)).toContainText("Resume (ATS-friendly)");
+  await tabs.nth(1).click();
+  await expect(page.locator("[role=tabpanel]:visible [data-testid=pdf-pages] canvas")).toHaveCount(2, { timeout: 15_000 });
+  await expect(page.getByRole("button", { name: "Continue to email" })).toBeEnabled();
+  // history: one batch row, expandable to its documents
+  await page.locator(".brand").click();
+  const row = page.locator(".ant-table-row", { hasText: "2 documents" }).first();
+  await expect(row).toBeVisible();
+  await row.locator(".ant-table-row-expand-icon").click();
+  await expect(page.locator(".ant-table-expanded-row").getByText("Cover note")).toBeVisible();
+  await row.getByRole("button", { name: "Open" }).first().click();
+  await expect(page.getByRole("tab")).toHaveCount(2);
+});

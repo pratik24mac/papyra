@@ -1,6 +1,6 @@
 // Step 5: show the PDF, let the user open/save the files, and refuse a stale PDF (spec §8).
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Button, Card, Space, Typography, message } from "antd";
+import { Alert, Button, Card, Space, Tabs, Tag, Typography, message } from "antd";
 import { FileWordOutlined, FilePdfOutlined, FolderOpenOutlined, GlobalOutlined, ReloadOutlined, SaveOutlined, MailOutlined } from "@ant-design/icons";
 import { backend } from "../api/backend";
 import type { JobInfo } from "../api/types";
@@ -8,9 +8,8 @@ import { PdfViewer } from "../components/PdfViewer";
 import { describeError } from "../lib/errors";
 import { readyJobIds, useStore } from "../store";
 
-export function Preview() {
-  const { state, dispatch } = useStore();
-  const jobId = readyJobIds(state.job)[0];
+/** One document's preview and actions. `onStale` reports whether its PDF is usable. */
+export function DocumentPreview({ jobId, onStale }: { jobId: string; onStale?: (stale: boolean) => void }) {
   const [info, setInfo] = useState<JobInfo | null>(null);
   const [pdf, setPdf] = useState<ArrayBuffer | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -22,10 +21,10 @@ export function Preview() {
     try {
       const api = await backend();
       const i = await api.jobInfo(jobId);
-      setInfo(i);
+      setInfo(i); onStale?.(i.state.pdf_stale);
       setPdf(i.state.pdf_stale ? null : await api.readPdf(jobId));
     } catch (e) { setError(describeError(e)); }
-  }, [jobId]);
+  }, [jobId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { refresh(); }, [refresh]);
   // re-check when the window regains focus: the user may have edited the Word file meanwhile
@@ -58,9 +57,33 @@ export function Preview() {
         </Space>}>
         {stale ? <Typography.Text type="secondary">Preview hidden: the PDF is out of date.</Typography.Text> : <PdfViewer data={pdf} />}
       </Card>
+    </Space>
+  );
+}
+
+export function Preview() {
+  const { state, dispatch } = useStore();
+  const ready = readyJobIds(state.job);
+  const [staleById, setStaleById] = useState<Record<string, boolean>>({});
+  const [active, setActive] = useState<string | null>(null);
+  if (!ready.length) return null;
+  const batch = state.job?.batch ?? null;
+  const current = active && ready.includes(active) ? active : ready[0];
+  const anyStale = ready.some((id) => staleById[id]);
+  const markStale = (id: string) => (v: boolean) => setStaleById((m) => (m[id] === v ? m : { ...m, [id]: v }));
+  return (
+    <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
+      {batch ? (
+        <Tabs activeKey={current} onChange={setActive} items={batch.documents.map((d) => ({
+          key: d.job_id, disabled: d.status !== "pdf_done",
+          label: <Space size={6}>{d.template_name}{d.status !== "pdf_done" ? <Tag color="red">failed</Tag> : staleById[d.job_id] ? <Tag color="orange">out of date</Tag> : null}</Space>,
+          children: d.status === "pdf_done" ? <DocumentPreview jobId={d.job_id} onStale={markStale(d.job_id)} />
+                   : <Alert type="error" showIcon message={`${d.template_name} was not generated`} description={d.error?.message} />,
+        }))} />
+      ) : <DocumentPreview jobId={ready[0]} onStale={markStale(ready[0])} />}
       <Space>
         <Button onClick={() => dispatch({ type: "step", step: 1 })}>Correct details</Button>
-        <Button type="primary" icon={<MailOutlined />} disabled={stale} onClick={() => dispatch({ type: "step", step: 5 })}>Continue to email</Button>
+        <Button type="primary" icon={<MailOutlined />} disabled={anyStale} onClick={() => dispatch({ type: "step", step: 5 })}>Continue to email</Button>
         <Button onClick={() => dispatch({ type: "reset" })}>New document</Button>
       </Space>
     </Space>
