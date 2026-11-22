@@ -14,13 +14,13 @@ class SettingInvalid(DocMasterError):
     code, rpc_code, user_message = "SETTING_INVALID", -32060, "That setting value is not allowed."
 
 
-KNOWN = {"output_dir": str, "imap_account": dict, "offline_mode": bool, "keep_history": bool, "date_format": str, "last_output_dir": str}
+KNOWN = {"output_dir": str, "imap_account": dict, "offline_mode": bool, "keep_history": bool, "date_format": str, "last_output_dir": str, "user_templates_dir": str}
 
 
 class Settings:
     def __init__(self, data_dir: Path, default_output_dir: Path):
         self.path = data_dir / "settings.json"
-        self.defaults = {"output_dir": str(default_output_dir), "imap_account": None, "offline_mode": True, "keep_history": True, "date_format": "D MMMM YYYY", "last_output_dir": None}
+        self.defaults = {"output_dir": str(default_output_dir), "imap_account": None, "offline_mode": True, "keep_history": True, "date_format": "D MMMM YYYY", "last_output_dir": None, "user_templates_dir": None}
         self._lock = threading.Lock()
         self._data: dict = {}
         self._load()
@@ -67,6 +67,12 @@ class Settings:
             from ..docgen.dates import check_format
             try: check_format(value)
             except Exception as e: raise SettingInvalid(f"date format not usable: {e}", data={"key": key})  # noqa: BLE001
+        if key == "user_templates_dir":
+            p = Path(os.path.expanduser(value))
+            if not p.is_absolute():
+                raise SettingInvalid("the templates folder must be an absolute path", data={"key": key})
+            ensure_dir(p)
+            value = str(p.resolve())
         if key == "output_dir":
             p = Path(os.path.expanduser(value))
             if not p.is_absolute():

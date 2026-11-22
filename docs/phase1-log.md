@@ -472,3 +472,11 @@ field `format` → explicit Settings choice (`settings.explicit`) → template `
 `templates.list` exposes `date_format`; `settings.get` exposes `date_format_explicit`; the review
 step shows dates exactly as they will print (`apps/desktop/src/lib/dates.ts` mirrors the engine).
 Batch test proves every document follows the Settings format once chosen.
+
+## 2026-11-24 — Changeable templates folder
+Setting `user_templates_dir` (absolute, created with README, remembered; `null` resets to
+`<default output>/templates`); `settings.set` re-roots the catalogue and rescans at once;
+`templates.list`, `templates.rescan` and `system.diagnostics` report the current folder. Rust
+`choose_templates_dir` (native picker) and `open_templates_dir` now opens the engine's current
+folder. Settings card "My templates folder": Choose folder…, Reset to default, Open. Tests: engine
+(switch, restart persistence, reset, validation) and e2e.

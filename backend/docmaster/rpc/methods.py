@@ -29,11 +29,17 @@ from ..templates.catalogue import Catalogue
 
 def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str | None = None, data_dir: Path | None = None,
                   credentials: CredentialStore | None = None, imap_factory=None, user_templates_dir: Path | None = None) -> dict:
-    user_templates_dir = user_templates_dir or output_dir / "templates"
-    try: Catalogue.ensure_user_root(user_templates_dir)
+    default_user_templates_dir = user_templates_dir or output_dir / "templates"
+    settings_early = Settings(data_dir or output_dir.parent / ".papyra", output_dir)
+    settings_early.defaults["user_templates_dir"] = str(default_user_templates_dir)
+
+    def current_user_templates_dir() -> Path:
+        return Path(settings.all().get("user_templates_dir") or default_user_templates_dir)
+
+    try: Catalogue.ensure_user_root(Path(settings_early.all().get("user_templates_dir") or default_user_templates_dir))
     except OSError: pass
-    catalogue = Catalogue(templates_dir, user_templates_dir)
-    settings = Settings(data_dir or output_dir.parent / ".papyra", output_dir)
+    catalogue = Catalogue(templates_dir, Path(settings_early.all().get("user_templates_dir") or default_user_templates_dir))
+    settings = settings_early
     jobs = JobStore(settings.output_dir(), settings.path.parent / "jobs-index.json")   # default re-pointed on every call via current_jobs()
     creds = credentials or CredentialStore()
     history = History(settings.path.parent)
@@ -65,7 +71,7 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         writable = True
         try: ensure_dir(settings.output_dir())
         except Exception: writable = False  # noqa: BLE001
-        return {"templates_dir": str(templates_dir), "user_templates_dir": str(user_templates_dir), "templates": len([t for t in catalogue.list() if t["status"] == "ok"]),
+        return {"templates_dir": str(templates_dir), "user_templates_dir": str(current_user_templates_dir()), "templates": len([t for t in catalogue.list() if t["status"] == "ok"]),
                 "output_dir": str(settings.output_dir()), "output_dir_writable": writable, "data_dir": str(settings.path.parent),
                 "libreoffice": {"found": soffice is not None, "path": str(soffice) if soffice else None,
                                 "version": soffice_version(soffice) if soffice else None,
@@ -77,11 +83,11 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
         return selfcheck_run(soffice_override, settings.path.parent, convert=convert)
 
     def templates_list(ctx):
-        return {"templates": catalogue.list(), "user_templates_dir": str(user_templates_dir)}
+        return {"templates": catalogue.list(), "user_templates_dir": str(current_user_templates_dir())}
 
     def templates_rescan(ctx):
         changed = catalogue.reload(force=True)
-        return {"changed": changed, "templates": catalogue.list(rescan=False), "user_templates_dir": str(user_templates_dir)}
+        return {"changed": changed, "templates": catalogue.list(rescan=False), "user_templates_dir": str(current_user_templates_dir())}
 
     def templates_example_values(ctx, template_id: str):
         return {"values": catalogue.example_values(template_id)}
@@ -245,6 +251,11 @@ def build_methods(templates_dir: Path, output_dir: Path, soffice_override: str |
 
     def settings_set(ctx, key: str, value=None):
         settings.set(key, value)
+        if key == "user_templates_dir":
+            root = current_user_templates_dir()
+            try: Catalogue.ensure_user_root(root)
+            except OSError: pass
+            catalogue.set_user_root(root)
         return settings_payload()
 
     # ---------------- email ----------------

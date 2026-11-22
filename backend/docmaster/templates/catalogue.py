@@ -81,6 +81,11 @@ class Catalogue:
         self._scan = _Scan()
         self.reload()
 
+    def set_user_root(self, user_root: Path | None) -> None:
+        """Point the catalogue at another user templates folder and rescan."""
+        self.user_root = user_root
+        self.reload(force=True)
+
     # ---- scanning ----
     def _schema_paths(self) -> list[tuple[Path, str]]:
         out = []

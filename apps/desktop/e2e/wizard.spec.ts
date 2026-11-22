@@ -68,8 +68,13 @@ test("settings: mailbox connect, output folder, privacy toggles", async ({ page 
   await page.getByLabel("Password").fill("secret-pw");
   await page.locator("button", { hasText: /^Connect$/ }).click();
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Choose folder…" }).click();
+  await page.locator(".ant-card", { hasText: "Output folder" }).getByRole("button", { name: "Choose folder…" }).click();
   await expect(page.getByText("/Users/you/Desktop/Generated documents").first()).toBeVisible();
+  const tplCard = page.locator(".ant-card", { has: page.locator(".ant-card-head-title", { hasText: /^My templates folder$/ }) });
+  await tplCard.getByRole("button", { name: "Choose folder…" }).click();
+  await expect(tplCard.getByText("/Users/you/Dropbox/Papyra templates")).toBeVisible();
+  await tplCard.getByRole("button", { name: "Reset to default" }).click();
+  await expect(tplCard.getByText("/Users/you/Documents/Papyra/templates").first()).toBeVisible();
   const offline = page.getByRole("switch").first();
   await expect(offline).toBeChecked();                                               // offline by default
   await expect(page.getByRole("button", { name: /Check mail server reachability/ })).toBeDisabled();

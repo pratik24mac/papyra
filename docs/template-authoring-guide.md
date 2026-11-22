@@ -116,7 +116,7 @@ Two places are scanned, and both work the same way (`<id>/v<n>/schema.yaml`):
 | Where | Who uses it | How it appears |
 |-------|-------------|----------------|
 | `templates/` in the source tree | developers; bundled into the installer by the build | in dev runs and in every installed copy |
-| **My templates folder**: `~/Documents/Papyra/templates` (shown in Settings → Diagnostics, with an Open button) | anyone with the installed app, no rebuild | immediately: click **Rescan templates** on the template screen, or just switch back to the app |
+| **My templates folder**: `~/Documents/Papyra/templates` by default; change it in Settings → My templates folder (Choose folder…, Reset to default, Open), for example to a shared or synced drive | anyone with the installed app, no rebuild | immediately: the list rescans when the folder changes, on Rescan, or when you switch back to the app |
 
 Copy the whole `<id>/v1/` folder into the templates folder. A template with a mistake does not
 disappear: it is listed as **needs fixing** with the linter's findings, and "Open folder to fix"

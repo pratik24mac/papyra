@@ -127,3 +127,20 @@ def test_unserialisable_result_is_answered_with_an_error():
             import json; json.dumps(msg); sent.append(msg)   # mimic the real encoder strictness
     S()._handle({"id": 7, "method": "weird", "params": {}})
     assert sent and sent[-1]["error"]["data"]["code"] == "INTERNAL_ERROR" and "not serialisable" in sent[-1]["error"]["message"]
+
+
+def test_templates_folder_can_be_changed_at_runtime(tmp_path):
+    m = build_methods(BUNDLED, tmp_path / "out", data_dir=tmp_path / "data", credentials=CredentialStore(backend=FakeKeyring()))
+    default = tmp_path / "out" / "templates"
+    assert m["settings.get"](Ctx())["user_templates_dir"] == str(default) and m["settings.get"](Ctx())["defaults"]["user_templates_dir"] == str(default)
+    other = tmp_path / "Shared" / "Papyra templates"; copy_template(other, "memo", "Memo")
+    r = m["settings.set"](Ctx(), key="user_templates_dir", value=str(other))
+    assert r["user_templates_dir"] == str(other.resolve()) and (other / "README.txt").exists()
+    assert [t["id"] for t in m["templates.list"](Ctx())["templates"]] == ["resume-ats", "memo"]        # rescanned immediately
+    assert m["system.diagnostics"](Ctx())["user_templates_dir"] == str(other.resolve())
+    m2 = build_methods(BUNDLED, tmp_path / "out", data_dir=tmp_path / "data", credentials=CredentialStore(backend=FakeKeyring()))   # restart
+    assert [t["id"] for t in m2["templates.list"](Ctx())["templates"]] == ["resume-ats", "memo"]
+    m2["settings.set"](Ctx(), key="user_templates_dir", value=None)                                             # reset to default
+    assert [t["id"] for t in m2["templates.list"](Ctx())["templates"]] == ["resume-ats"]
+    from docmaster.storage.settings import SettingInvalid
+    with pytest.raises(SettingInvalid): m2["settings.set"](Ctx(), key="user_templates_dir", value="relative/path")

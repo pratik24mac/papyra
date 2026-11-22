@@ -69,12 +69,30 @@ async fn open_libreoffice_download(app: AppHandle) -> Result<(), RpcError> {
         .map_err(|e| RpcError { code: -32040, message: e.to_string(), data: json!({ "code": "OPEN_FAILED" }) })
 }
 
+/// The templates folder the engine is using now (Settings may have changed it).
+async fn current_templates_dir(app: &AppHandle) -> PathBuf {
+    let backend = app.state::<Backend>();
+    match backend.call("settings.get", json!({}), Duration::from_secs(20)).await {
+        Ok(v) => v["user_templates_dir"].as_str().map(PathBuf::from).unwrap_or_else(|| user_templates_dir(app)),
+        Err(_) => user_templates_dir(app),
+    }
+}
+
+/// Native folder picker for the templates folder (the choice is then saved through `settings.set`).
+#[tauri::command]
+async fn choose_templates_dir(app: AppHandle) -> Result<Option<String>, RpcError> {
+    auth::require_auth(&app)?;
+    use tauri_plugin_dialog::DialogExt;
+    let picked = app.dialog().file().set_title("Choose the folder that holds your templates").blocking_pick_folder();
+    Ok(picked.and_then(|p| p.into_path().ok()).map(|p| p.to_string_lossy().to_string()))
+}
+
 /// Reveal the user templates folder in the file manager (created by the backend on start).
 #[tauri::command]
 async fn open_templates_dir(app: AppHandle) -> Result<String, RpcError> {
     auth::require_auth(&app)?;
     use tauri_plugin_opener::OpenerExt;
-    let dir = user_templates_dir(&app);
+    let dir = current_templates_dir(&app).await;
     let _ = std::fs::create_dir_all(&dir);
     app.opener().open_path(dir.to_string_lossy(), None::<&str>).map_err(|e| RpcError { code: -32040, message: e.to_string(), data: json!({ "code": "OPEN_FAILED" }) })?;
     Ok(dir.to_string_lossy().to_string())
@@ -225,7 +243,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(Backend::new())
         .manage(auth::Auth::new())
-        .invoke_handler(tauri::generate_handler![backend_call, backend_status, choose_output_dir, open_data_dir, open_templates_dir, open_libreoffice_download, auth::login, auth::logout, auth::auth_status, files::read_job_pdf, files::open_job_file, files::reveal_job_folder, files::save_job_copy, files::open_job_in_browser])
+        .invoke_handler(tauri::generate_handler![backend_call, backend_status, choose_output_dir, open_data_dir, open_templates_dir, choose_templates_dir, open_libreoffice_download, auth::login, auth::logout, auth::auth_status, files::read_job_pdf, files::open_job_file, files::reveal_job_folder, files::save_job_copy, files::open_job_in_browser])
         .setup(|app| {
             let handle = app.handle().clone();
             let templates = templates_dir(&handle);

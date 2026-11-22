@@ -29,7 +29,8 @@ export interface BackendApi {
   imapSaveAccount(account: ImapAccountInput, password: string): Promise<ImapAccountInfo>;
   imapRemoveAccount(): Promise<ImapAccountInfo>;
   settingsGet(): Promise<AppSettings>;
-  settingsSet(key: "output_dir" | "offline_mode" | "keep_history" | "date_format", value: string | boolean | null): Promise<AppSettings>;
+  settingsSet(key: "output_dir" | "offline_mode" | "keep_history" | "date_format" | "user_templates_dir", value: string | boolean | null): Promise<AppSettings>;
+  chooseTemplatesDir(): Promise<string | null>;
   historyList(limit?: number): Promise<{ jobs: HistoryRow[]; total: number }>;
   historyDelete(jobId: string, deleteFiles: boolean): Promise<{ removed_row: boolean; removed_files: boolean }>;
   historyClear(deleteFiles: boolean): Promise<{ removed_rows: number; removed_job_folders: number }>;
@@ -90,6 +91,7 @@ async function tauriApi(): Promise<BackendApi> {
     settingsGet: () => call<AppSettings>("settings.get"),
     settingsSet: (key, value) => call<AppSettings>("settings.set", { key, value }),
     chooseOutputDir: () => invoke<string | null>("choose_output_dir"),
+    chooseTemplatesDir: () => invoke<string | null>("choose_templates_dir"),
     jobInfo: (job_id) => call<JobInfo>("jobs.get", { job_id }),
     convertPdf: (job_id) => call<ConvertResult>("docgen.convert_pdf", { job_id }),
     readPdf: (jobId) => invoke<ArrayBuffer>("read_job_pdf", { jobId }),
@@ -116,10 +118,11 @@ async function mockApi(): Promise<BackendApi> {
   let imapAccount: ImapAccountInput | null = null;
   let offline = true, keepHistory = true;   // offline by default, like the real backend
   let dateFormat = "D MMMM YYYY";
+  let templatesDir = "/Users/you/Documents/Papyra/templates";
   const presets = [["D MMMM YYYY", "12 March 2026"], ["DD/MM/YYYY", "12/03/2026"], ["MM/DD/YYYY", "03/12/2026"], ["YYYY-MM-DD", "2026-03-12"], ["MMMM D, YYYY", "March 12, 2026"], ["Do MMMM YYYY", "12th March 2026"], ["DD-MMM-YYYY", "12-Mar-2026"], ["dddd, D MMMM YYYY", "Thursday, 12 March 2026"]];
-  const settingsObj = (): AppSettings => ({ output_dir: outputDir, offline_mode: offline, keep_history: keepHistory, date_format: dateFormat, date_format_explicit: dateFormat === "D MMMM YYYY" ? null : dateFormat, last_output_dir: null,
+  const settingsObj = (): AppSettings => ({ output_dir: outputDir, offline_mode: offline, keep_history: keepHistory, date_format: dateFormat, date_format_explicit: dateFormat === "D MMMM YYYY" ? null : dateFormat, last_output_dir: null, user_templates_dir: templatesDir,
     date_format_example: presets.find((p) => p[0] === dateFormat)?.[1] ?? "12 March 2026", date_format_presets: presets.map(([format, example]) => ({ format, example })),
-    defaults: { output_dir: "/Users/you/Documents/Papyra" }, settings_file: "/mock/settings.json" });
+    defaults: { output_dir: "/Users/you/Documents/Papyra", user_templates_dir: "/Users/you/Documents/Papyra/templates" }, settings_file: "/mock/settings.json" });
   const historyRows: HistoryRow[] = [];
   const mockBatches: Record<string, BatchResult> = {};
   let stale = false;   // the mock toggles staleness: window.__mockStale = true simulates an external edit
@@ -134,7 +137,7 @@ async function mockApi(): Promise<BackendApi> {
     imapSaveAccount: async (account, password) => { await sleep(600); if (password !== "secret-pw") throw rpcError("EMAIL_AUTH_FAILED", "The mail server rejected the username or password."); imapAccount = account; return { configured: true, has_password: true, email: account.email, host: account.host, port: account.port, username: account.email, drafts_folder: "Drafts" }; },
     imapRemoveAccount: async () => { imapAccount = null; return { configured: false }; },
     settingsGet: async () => settingsObj(),
-    settingsSet: async (k, v) => { if (k === "output_dir") outputDir = (v as string | null) ?? "/Users/you/Documents/Papyra"; if (k === "offline_mode") offline = Boolean(v); if (k === "keep_history") keepHistory = Boolean(v); if (k === "date_format") dateFormat = String(v); return settingsObj(); },
+    settingsSet: async (k, v) => { if (k === "output_dir") outputDir = (v as string | null) ?? "/Users/you/Documents/Papyra"; if (k === "offline_mode") offline = Boolean(v); if (k === "keep_history") keepHistory = Boolean(v); if (k === "date_format") dateFormat = String(v); if (k === "user_templates_dir") templatesDir = (v as string | null) ?? "/Users/you/Documents/Papyra/templates"; return settingsObj(); },
     historyList: async () => {
       const out: HistoryRow[] = []; const seen: Record<string, HistoryRow> = {};
       for (const r of [...historyRows].reverse()) {
@@ -160,6 +163,7 @@ async function mockApi(): Promise<BackendApi> {
     networkCheck: async () => { await sleep(700); if (offline) throw rpcError("OFFLINE_MODE", "Offline mode is on: the app will not connect to any server."); if (!imapAccount) throw rpcError("EMAIL_ACCOUNT_MISSING", "No mailbox is connected."); return { host: imapAccount.host, port: imapAccount.port, ok: true, ms: 142, dns: { ok: true, addresses: ["203.0.113.5"] }, tcp: { ok: true }, tls: { ok: true, protocol: "TLSv1.3", subject: imapAccount.host } }; },
     openDataDir: async () => alert("(mock) would open the data folder"),
     chooseOutputDir: async () => "/Users/you/Desktop/Generated documents",
+    chooseTemplatesDir: async () => "/Users/you/Dropbox/Papyra templates",
     jobInfo: async (job_id) => {
       stale = Boolean((window as unknown as { __mockStale?: boolean }).__mockStale);
       const batchDoc = Object.values(mockBatches).flatMap((b) => b.documents).find((d) => d.job_id === job_id);
@@ -187,7 +191,7 @@ async function mockApi(): Promise<BackendApi> {
         { check: "LibreOffice installed", ok: true, detail: "/Applications/LibreOffice.app (mock) · LibreOffice 26.8" }, { check: "LibreOffice profile", ok: true, detail: "/mock/lo-profile · warm" },
         { check: "No leftover LibreOffice processes", ok: true, detail: "0 running with the Papyra profile" }, { check: "Test PDF conversion", ok: true, detail: "0.7 s, 1 page, total 0.9 s" } ],
       log_path: "/mock/logs/backend.log", log_tail: ["2026-11-21 23:13:39,824 INFO docmaster.rpc: rpc server ready", "2026-11-21 23:14:45,018 ERROR docmaster.rpc: docgen.generate crashed", "ModuleNotFoundError: No module named 'psutil'"] }; },
-    diagnostics: async () => ({ templates_dir: "/mock/templates", user_templates_dir: "/Users/you/Documents/Papyra/templates", templates: templates.length, output_dir: "~/Documents/Papyra", output_dir_writable: true,
+    diagnostics: async () => ({ templates_dir: "/mock/templates", user_templates_dir: templatesDir, templates: templates.length, output_dir: "~/Documents/Papyra", output_dir_writable: true,
       libreoffice: { found: true, path: "/Applications/LibreOffice.app (mock)", version: "LibreOffice (mock)" }, platform: navigator.platform, python: "mock" }),
     listTemplates: async () => templates,
     rescanTemplates: async () => templates,

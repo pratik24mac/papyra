@@ -18,6 +18,19 @@ export function Settings() {
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [folderBusy, setFolderBusy] = useState(false);
+  const [tplBusy, setTplBusy] = useState(false);
+  const changeTemplatesFolder = async (value?: string | null) => {
+    setTplBusy(true);
+    try {
+      const api = await backend();
+      let target = value;
+      if (target === undefined) { target = await api.chooseTemplatesDir(); if (!target) return; }
+      const s = await api.settingsSet("user_templates_dir", target);
+      setSettings(s); setDiag(await api.diagnostics());
+      message.success(target ? `Templates are now read from ${s.user_templates_dir}` : "Templates folder reset to default");
+    } catch (e) { const d = describeError(e); message.error(`${d.title}: ${d.detail}`); }
+    finally { setTplBusy(false); }
+  };
   const refresh = async () => {
     setLoading(true); setError(null);
     try { const api = await backend(); setPing(await api.ping()); setDiag(await api.diagnostics()); setSettings(await api.settingsGet()); }
@@ -47,11 +60,22 @@ export function Settings() {
           <Descriptions.Item label="Document engine">{ping ? <>{ok(true, "Running")} {ping.name} {ping.version} · Python {ping.python} · pid {ping.pid}</> : <Tag>unknown</Tag>}</Descriptions.Item>
           <Descriptions.Item label="LibreOffice">{diag ? <>{ok(diag.libreoffice.found, "Found", "Not found")} {diag.libreoffice.version ?? "Install LibreOffice to enable PDF conversion"} <br /><Typography.Text type="secondary">{diag.libreoffice.path}</Typography.Text></> : "—"}</Descriptions.Item>
           <Descriptions.Item label="Templates">{diag ? <>{ok(diag.templates > 0)} {diag.templates} usable · bundled: {diag.templates_dir}</> : "—"}</Descriptions.Item>
-          <Descriptions.Item label="My templates folder">{diag ? <Space>{diag.user_templates_dir}<Button size="small" icon={<FolderOpenOutlined />} onClick={async () => (await backend()).openTemplatesDir()}>Open</Button></Space> : "—"}</Descriptions.Item>
+          <Descriptions.Item label="My templates folder">{diag ? diag.user_templates_dir : "—"}</Descriptions.Item>
           <Descriptions.Item label="Output folder">{diag ? <>{ok(diag.output_dir_writable, "Writable", "Not writable")} {diag.output_dir}</> : "—"}</Descriptions.Item>
           <Descriptions.Item label="Platform">{diag?.platform ?? "—"}</Descriptions.Item>
         </Descriptions>
         <div style={{ marginTop: 16 }}><SelfCheckCard /></div>
+      </Card>
+      <Card className="glass" title="My templates folder" extra={<Space>
+          <Button icon={<FolderOpenOutlined />} loading={tplBusy} onClick={() => changeTemplatesFolder()}>Choose folder…</Button>
+          <Button icon={<UndoOutlined />} disabled={!settings || !settings.defaults.user_templates_dir || settings.user_templates_dir === settings.defaults.user_templates_dir} onClick={() => changeTemplatesFolder(null)}>Reset to default</Button>
+          <Button onClick={async () => (await backend()).openTemplatesDir()}>Open</Button>
+        </Space>}>
+        <Descriptions column={1} bordered size="small">
+          <Descriptions.Item label="Templates are read from">{settings?.user_templates_dir ?? "—"}</Descriptions.Item>
+          <Descriptions.Item label="Default">{settings?.defaults.user_templates_dir ?? "—"}</Descriptions.Item>
+        </Descriptions>
+        <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>Each template is a folder named by its id with a v1 sub-folder; a shared _assets folder holds watermarks. The list rescans as soon as the folder changes. Bundled templates are always available.</Typography.Paragraph>
       </Card>
       <Card className="glass" title="Output folder" extra={<Space>
           <Button icon={<FolderOpenOutlined />} loading={folderBusy} onClick={() => changeFolder()}>Choose folder…</Button>

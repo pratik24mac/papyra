@@ -161,9 +161,10 @@ export interface AppSettings {
   /** null when the built-in default is in effect (no explicit choice yet) */
   date_format_explicit?: string | null;
   last_output_dir: string | null;
+  user_templates_dir: string;
   date_format_example: string;
   date_format_presets: { format: string; example: string }[];
-  defaults: { output_dir: string };
+  defaults: { output_dir: string; user_templates_dir?: string };
   settings_file: string;
 }
 
