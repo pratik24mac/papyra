@@ -27,7 +27,7 @@ describe("defaults", () => {
 describe("rules", () => {
   it("maps required/max_length", () => {
     const r = rulesFor(tpl.groups[0].fields[0]);
-    expect(r).toEqual([{ required: true, message: "Name is required" }, { max: 5, message: "At most 5 characters" }]);
+    expect(r).toEqual([{ required: true, whitespace: true, message: "Name is required" }, { max: 5, message: "At most 5 characters" }]);
   });
   it("validates list sizes", async () => {
     const [rule] = rulesFor(tpl.groups[0].fields[2]);
