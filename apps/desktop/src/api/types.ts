@@ -129,9 +129,11 @@ export type ImapAccountInfo =
 
 export interface EmlResult {
   job_id: string;
+  job_ids?: string[];
   eml_path: string;
   bytes: number;
   attachment: string;
+  attachments?: string[];
 }
 
 export interface ImapDraftResult {
@@ -141,6 +143,8 @@ export interface ImapDraftResult {
   uid: number | null;
   confirmed: boolean;
   attachment: string;
+  attachments?: string[];
+  job_ids?: string[];
 }
 
 export interface AppSettings {

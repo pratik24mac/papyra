@@ -101,11 +101,31 @@ def lint_template(docx: Path, schema: dict) -> list[Finding]:
     return f
 
 
+def cross_template_findings(schemas: dict[str, dict]) -> list[Finding]:
+    """M004: the same field id with different types across templates is asked separately when the
+    templates are generated together; usually a sign that one of them should be renamed."""
+    types: dict[str, dict[str, str]] = {}
+    for name, schema in schemas.items():
+        for g in schema.get("groups", []):
+            for f in g.get("fields", []):
+                types.setdefault(f["id"], {})[name] = f["type"]
+    out = []
+    for fid, by in sorted(types.items()):
+        if len(set(by.values())) > 1:
+            detail = ", ".join(f"{n}: {t}" for n, t in sorted(by.items()))
+            out.append(Finding("M004", "warning", f"field '{fid}' has different types across templates ({detail}); it is asked separately in a batch", "schema.yaml"))
+    return out
+
+
 def lint_catalogue(templates_dir: Path) -> dict[str, list[Finding]]:
     import yaml
-    out = {}
+    out = {}; schemas = {}
     for schema_path in sorted(templates_dir.glob("*/v*/schema.yaml")):
         schema = yaml.safe_load(schema_path.read_text(encoding="utf8"))
         docx = schema_path.parent / schema["template"]["file"]
-        out[f"{schema['template']['id']} v{schema['template']['version']}"] = lint_template(docx, schema)
+        key = f"{schema['template']['id']} v{schema['template']['version']}"
+        out[key] = lint_template(docx, schema); schemas[key] = schema
+    cross = cross_template_findings(schemas)
+    if cross:
+        out["(across templates)"] = cross
     return out

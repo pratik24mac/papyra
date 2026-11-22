@@ -155,3 +155,13 @@ def test_email_methods_end_to_end(tmp_path):
     with pytest.raises(PdfStale): m["email.prepare_eml"](Ctx(), job_id="job-e", message=msg)
     with pytest.raises(PdfStale): m["email.create_imap_draft"](Ctx(), job_id="job-e", message=msg)
     assert m["email.imap_remove_account"](Ctx()) == {"configured": False} and kr.d == {}
+
+
+def test_eml_and_mime_with_several_attachments(tmp_path):
+    pdf1 = tmp_path / "A.pdf"; pdf2 = tmp_path / "B.pdf"; shutil.copy(PDF, pdf1); shutil.copy(PDF, pdf2)
+    spec = DraftSpec.from_dict({"to": "hr@example.com", "subject": "Two docs", "body": "x"})
+    msg = build_message(spec, [pdf1, pdf2])
+    atts = [p for p in message_from_bytes(msg.as_bytes()).walk() if p.get_content_disposition() == "attachment"]
+    assert [a.get_filename() for a in atts] == ["A.pdf", "B.pdf"]
+    out = write_eml(spec, [pdf1, pdf2])
+    assert out.name == "A (+1 more).eml" and out.stat().st_size > 2 * PDF.stat().st_size

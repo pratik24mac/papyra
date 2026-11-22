@@ -12,12 +12,13 @@ type Mode = "eml" | "imap";
 
 export function Email() {
   const { state, dispatch } = useStore();
-  const jobId = readyJobIds(state.job)[0];
+  const jobIds = readyJobIds(state.job);
+  const jobId = jobIds[0];
   const [form] = Form.useForm<DraftMessage>();
   const [mode, setMode] = useState<Mode>("eml");
   const [account, setAccount] = useState<ImapAccountInfo | null>(null);
   const [offline, setOffline] = useState(true);
-  const [info, setInfo] = useState<JobInfo | null>(null);
+  const [infos, setInfos] = useState<JobInfo[]>([]);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ mode: Mode; eml?: EmlResult; imap?: ImapDraftResult } | null>(null);
   const [error, setError] = useState<ReturnType<typeof describeError> | null>(null);
@@ -28,15 +29,17 @@ export function Email() {
       const a = await api.imapGetAccount(); setAccount(a);
       const st = await api.settingsGet(); setOffline(st.offline_mode);
       if (a.configured && !st.offline_mode) setMode("imap");
-      setInfo(await api.jobInfo(jobId));
+      setInfos(await Promise.all(jobIds.map((id) => api.jobInfo(id))));
     });
     const v = state.values;
     form.setFieldsValue({ to: String(v.recipient_email ?? ""), subject: String(v.email_subject ?? ""), body: String(v.email_body ?? "") });
   }, [jobId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!jobId) return null;
-  const stale = info?.state.pdf_stale ?? false;
-  const attachment = info?.job.pdf_path?.split("/").pop();
+  const stale = infos.some((i) => i.state.pdf_stale);
+  const attachments = infos.map((i) => i.job.pdf_path?.split("/").pop() ?? "document.pdf");
+  const attachment = attachments.length > 1 ? `${attachments.length} PDFs` : attachments[0];
+  const pages = infos.reduce((n, i) => n + (i.job.pages ?? 0), 0);
 
   const create = async () => {
     const msg = await form.validateFields().catch(() => null);
@@ -44,14 +47,14 @@ export function Email() {
     const target = mode === "imap" && account?.configured ? `a draft in the Drafts folder of ${account.email}` : "a .eml file next to the generated document";
     Modal.confirm({
       title: "Create the email draft?",
-      content: <>This will create {target} with <strong>{attachment}</strong> attached. Nothing will be sent.</>,
+      content: <>This will create {target} with <strong>{attachments.join(", ")}</strong> attached. Nothing will be sent.</>,
       okText: "Create draft", onOk: async () => {
         setBusy(true); setError(null); setResult(null);
         try {
           const api = await backend();
-          if (mode === "imap") setResult({ mode, imap: await api.createImapDraft(jobId, msg) });
-          else setResult({ mode, eml: await api.prepareEml(jobId, msg) });
-          setInfo(await api.jobInfo(jobId));
+          if (mode === "imap") setResult({ mode, imap: await api.createImapDraft(jobIds, msg) });
+          else setResult({ mode, eml: await api.prepareEml(jobIds, msg) });
+          setInfos(await Promise.all(jobIds.map((id) => api.jobInfo(id))));
         } catch (e) { setError(describeError(e)); } finally { setBusy(false); }
       },
     });
@@ -64,10 +67,10 @@ export function Email() {
   return (
     <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
       {stale && <Alert type="warning" showIcon message="The PDF is out of date" description="Go back to Preview and regenerate the PDF before preparing the email." />}
-      <Card className="glass" title="Attachment">
+      <Card className="glass" title={attachments.length > 1 ? `Attachments (${attachments.length})` : "Attachment"}>
         <Descriptions column={1} bordered size="small">
-          <Descriptions.Item label="File">{attachment ?? "—"}</Descriptions.Item>
-          <Descriptions.Item label="Pages">{info?.job.pages ?? "—"}</Descriptions.Item>
+          <Descriptions.Item label={attachments.length > 1 ? "Files" : "File"}>{attachments.length ? attachments.join(", ") : "—"}</Descriptions.Item>
+          <Descriptions.Item label="Pages">{infos.length ? pages : "—"}</Descriptions.Item>
           <Descriptions.Item label="Status">{stale ? <Tag color="orange">out of date</Tag> : <Tag color="green">current</Tag>}</Descriptions.Item>
         </Descriptions>
       </Card>
@@ -97,7 +100,7 @@ export function Email() {
       {error && <Alert type="error" showIcon message={error.title} description={<>{error.detail}{error.action && <><br /><strong>{error.action}</strong></>}</>} />}
       {result?.eml && (
         <Alert type="success" showIcon message="Email file saved" description={<Space orientation="vertical">
-          <span>{result.eml.eml_path} ({Math.round(result.eml.bytes / 1024)} KB, attachment {result.eml.attachment})</span>
+          <span>{result.eml.eml_path} ({Math.round(result.eml.bytes / 1024)} KB, {(result.eml.attachments ?? [result.eml.attachment]).length > 1 ? `${(result.eml.attachments ?? []).length} attachments` : `attachment ${result.eml.attachment}`})</span>
           <Space><Button icon={<MailOutlined />} onClick={() => open("eml")}>Open in mail app</Button><Button icon={<FolderOpenOutlined />} onClick={() => open("folder")}>Show in folder</Button></Space>
         </Space>} />
       )}

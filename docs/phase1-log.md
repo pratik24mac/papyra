@@ -398,3 +398,20 @@ the job folder is created under it. `JobStore` keeps `jobs-index.json` (ids and 
 the data dir so a job saved anywhere is found by preview, email, history and after a restart;
 `jobs.get` reports the job's own parent folder, which the Rust containment check uses.
 Self-test: save-to + path check.
+
+## 2026-11-23 — Step D: multi-document batches
+* Engine: `docgen.generate_batch(templates, values, values_by_template?, batch_id?, output_dir?)`
+  → one folder per batch (`<person>-<date>`, `(2)` on collision), documents side by side, records in
+  `<batch>/.jobs/<job_id>.json`, `batch.json`, `batches.get`; a failed document is reported and the
+  rest continue; progress events carry `document/index/total/doc_job_id`; `jobs-index.json` maps
+  ids to record paths (batch or single). History: `batch_id/batch_dir/template_name` columns,
+  `history.list` groups a batch into one row with `documents`, `history.delete_batch`.
+  Email: `build_message`/`write_eml` take a list of PDFs; `email.prepare_eml` /
+  `email.create_imap_draft` accept `job_ids` (25 MB total). Linter M004 flags cross-template type
+  clashes (CLI "(across templates)").
+* UI: tick several templates → "Generate N documents together"; `lib/merge.ts` builds the merged
+  form (Common details, per-template sections, conflict keys `id__template`, merged defaults and
+  examples, `split()` back into shared values + per-template overrides); batch progress table and
+  results; tabbed preview with per-document staleness and failed tabs; history batch rows
+  (expand, open, delete); email step attaches every ready PDF. Mock: second template "Cover note";
+  e2e `batch.spec.ts` (4 tests). Self-test: batch, batch-path, batch-history.

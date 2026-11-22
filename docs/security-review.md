@@ -7,7 +7,7 @@ settings, credentials, logs and network use. Reviewed against spec §10 (offline
 | Boundary | Control | Status |
 |----------|---------|--------|
 | WebView → Rust | Only commands in `generate_handler!`; every one calls `require_auth` except `login`, `auth_status`, `backend_status` | ✅ |
-| WebView → backend | Single command `backend_call` with a **closed allow-list** (`ALLOWED_METHODS`); `system.shutdown` is not callable from the UI; `tests/test_contract.py` keeps Python, Rust and TypeScript lists in sync | ✅ |
+| WebView → backend | Single command `backend_call` with a **closed allow-list** (2026-11-23: + `docgen.generate_batch`, `batches.get`, `history.delete_batch`; batch folders stay inside the chosen output folder and file access is still by job id) (`ALLOWED_METHODS`); `system.shutdown` is not callable from the UI; `tests/test_contract.py` keeps Python, Rust and TypeScript lists in sync | ✅ |
 | WebView → filesystem | No `fs`/`shell`/`http`/`dialog` plugin permissions in `capabilities/default.json` (core only). Files are addressed by job id; Rust resolves paths through the backend and rejects anything outside the current output folder (`files.rs`) | ✅ |
 | WebView content | CSP: `default-src 'self'`; no remote scripts, images limited to self/data/blob, worker-src for pdf.js only; `devUrl` only in dev | ✅ |
 | Rust → backend | stdio JSON-RPC, process owned by Rust, no listening socket, no port | ✅ |

@@ -91,3 +91,12 @@ def test_sha256_matches_hashlib(tmp_path):
     import hashlib
     f = tmp_path / "x"; f.write_bytes(b"abc" * 1000)
     assert sha256_of(f) == hashlib.sha256(b"abc" * 1000).hexdigest()
+
+
+def test_cross_template_type_clash_is_a_warning():
+    from docmaster.docgen.linter import cross_template_findings
+    a = {"groups": [{"id": "g", "label": "G", "fields": [{"id": "headline", "label": "H", "type": "text"}, {"id": "full_name", "label": "N", "type": "text"}]}]}
+    b = {"groups": [{"id": "g", "label": "G", "fields": [{"id": "headline", "label": "Tone", "type": "select", "options": ["x"]}, {"id": "full_name", "label": "N", "type": "text"}]}]}
+    f = cross_template_findings({"resume v1": a, "cover v1": b})
+    assert len(f) == 1 and f[0].code == "M004" and f[0].level == "warning" and "headline" in f[0].message and "full_name" not in f[0].message
+    assert cross_template_findings({"resume v1": a}) == []

@@ -71,7 +71,12 @@ export function TemplateSelect() {
       </Row>
       {picked.length > 0 && (
         <div className="glass" style={{ position: "sticky", bottom: 12, marginTop: 16, padding: 12, borderRadius: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <Typography.Text>{picked.length} selected: {templates.filter((t) => picked.includes(t.id)).map((t) => t.name).join(", ")}</Typography.Text>
+          <Space orientation="vertical" size={2}>
+            <Typography.Text>{picked.length} selected: {templates.filter((t) => picked.includes(t.id)).map((t) => t.name).join(", ")}</Typography.Text>
+            {(() => { const sel = templates.filter((t) => picked.includes(t.id) && t.status === "ok"); if (sel.length < 2) return null;
+              const conflicts = mergeTemplates(sel).summary.groups.flatMap((g) => g.fields).filter((f) => f.id.includes("__")).map((f) => f.label);
+              return conflicts.length ? <Typography.Text type="warning" style={{ fontSize: 12 }}>Asked separately because the templates define them differently: {conflicts.join(", ")}</Typography.Text> : null; })()}
+          </Space>
           <Space>
             <Button size="small" onClick={() => setPicked([])}>Clear</Button>
             <Button type="primary" disabled={picked.length < 2} onClick={startBatch}>Generate {picked.length} documents together</Button>

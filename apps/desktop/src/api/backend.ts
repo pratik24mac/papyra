@@ -22,8 +22,8 @@ export interface BackendApi {
   historyDeleteBatch(batchId: string, deleteFiles: boolean): Promise<{ removed_rows: number; removed_files: boolean }>;
   exampleValues(templateId: string): Promise<Values>;
   status(): Promise<BackendStatus>;
-  prepareEml(jobId: string, message: DraftMessage): Promise<EmlResult>;
-  createImapDraft(jobId: string, message: DraftMessage): Promise<ImapDraftResult>;
+  prepareEml(jobIds: string[], message: DraftMessage): Promise<EmlResult>;
+  createImapDraft(jobIds: string[], message: DraftMessage): Promise<ImapDraftResult>;
   imapGetAccount(): Promise<ImapAccountInfo>;
   imapTest(account: ImapAccountInput, password: string): Promise<{ ok: boolean; drafts_folder: string; email: string }>;
   imapSaveAccount(account: ImapAccountInput, password: string): Promise<ImapAccountInfo>;
@@ -73,8 +73,8 @@ async function tauriApi(): Promise<BackendApi> {
     openTemplatesDir: () => invoke<string>("open_templates_dir"),
     exampleValues: async (template_id) => (await call<{ values: Values }>("templates.example_values", { template_id })).values,
     status: () => invoke<BackendStatus>("backend_status"),
-    prepareEml: (job_id, message) => call<EmlResult>("email.prepare_eml", { job_id, message }),
-    createImapDraft: (job_id, message) => call<ImapDraftResult>("email.create_imap_draft", { job_id, message }),
+    prepareEml: (job_ids, message) => call<EmlResult>("email.prepare_eml", { job_ids, message }),
+    createImapDraft: (job_ids, message) => call<ImapDraftResult>("email.create_imap_draft", { job_ids, message }),
     imapGetAccount: () => call<ImapAccountInfo>("email.imap_get_account"),
     imapTest: (account, password) => call<{ ok: boolean; drafts_folder: string; email: string }>("email.imap_test", { account, password }),
     imapSaveAccount: (account, password) => call<ImapAccountInfo>("email.imap_save_account", { account, password }),
@@ -127,8 +127,8 @@ async function mockApi(): Promise<BackendApi> {
     login: async (u, p) => { await sleep(300); if (u === "admin" && p === "DocMaster!2026") { user = "admin"; return user; } throw rpcError("AUTH_FAILED", "Incorrect username or password."); },
     logout: async () => { user = null; },
     authStatus: async () => user,
-    prepareEml: async (job_id, message) => { await sleep(300); if (!message.to.includes("@")) throw rpcError("EMAIL_INVALID_ADDRESS", "One of the email addresses is not valid.", { field: "to" }); return { job_id, eml_path: `/mock/out/${job_id}/Resume.eml`, bytes: 140_000, attachment: "Resume.pdf" }; },
-    createImapDraft: async (job_id, message) => { await sleep(900); if (!imapAccount) throw rpcError("EMAIL_ACCOUNT_MISSING", "No mailbox is connected. Add your email account in Settings."); if (!message.to.includes("@")) throw rpcError("EMAIL_INVALID_ADDRESS", "One of the email addresses is not valid.", { field: "to" }); return { job_id, account: imapAccount.email, folder: "Drafts", uid: 57, confirmed: true, attachment: "Resume.pdf" }; },
+    prepareEml: async (job_ids, message) => { await sleep(300); if (!message.to.includes("@")) throw rpcError("EMAIL_INVALID_ADDRESS", "One of the email addresses is not valid.", { field: "to" }); const names = job_ids.map((j, i) => (i === 0 ? "Resume.pdf" : `Document ${i + 1}.pdf`)); return { job_id: job_ids[0], job_ids, eml_path: `/mock/out/${job_ids[0]}/Resume${job_ids.length > 1 ? ` (+${job_ids.length - 1} more)` : ""}.eml`, bytes: 140_000 * job_ids.length, attachment: names[0], attachments: names }; },
+    createImapDraft: async (job_ids, message) => { await sleep(900); if (!imapAccount) throw rpcError("EMAIL_ACCOUNT_MISSING", "No mailbox is connected. Add your email account in Settings."); if (!message.to.includes("@")) throw rpcError("EMAIL_INVALID_ADDRESS", "One of the email addresses is not valid.", { field: "to" }); const names = job_ids.map((j, i) => (i === 0 ? "Resume.pdf" : `Document ${i + 1}.pdf`)); return { job_id: job_ids[0], job_ids, account: imapAccount.email, folder: "Drafts", uid: 57, confirmed: true, attachment: names[0], attachments: names }; },
     imapGetAccount: async () => imapAccount ? { configured: true, has_password: true, email: imapAccount.email, host: imapAccount.host, port: imapAccount.port, username: imapAccount.email, drafts_folder: "Drafts" } : { configured: false },
     imapTest: async (account, password) => { await sleep(600); if (password !== "secret-pw") throw rpcError("EMAIL_AUTH_FAILED", "The mail server rejected the username or password."); return { ok: true, drafts_folder: "Drafts", email: account.email }; },
     imapSaveAccount: async (account, password) => { await sleep(600); if (password !== "secret-pw") throw rpcError("EMAIL_AUTH_FAILED", "The mail server rejected the username or password."); imapAccount = account; return { configured: true, has_password: true, email: account.email, host: account.host, port: account.port, username: account.email, drafts_folder: "Drafts" }; },
@@ -162,6 +162,9 @@ async function mockApi(): Promise<BackendApi> {
     chooseOutputDir: async () => "/Users/you/Desktop/Generated documents",
     jobInfo: async (job_id) => {
       stale = Boolean((window as unknown as { __mockStale?: boolean }).__mockStale);
+      const batchDoc = Object.values(mockBatches).flatMap((b) => b.documents).find((d) => d.job_id === job_id);
+      if (batchDoc) return { job: { job_id, template_id: batchDoc.template_id, template_version: 1, created_at: new Date().toISOString(), docx_path: batchDoc.docx_path ?? "", pdf_path: batchDoc.pdf_path, pages: batchDoc.pages, status: "pdf_done", eml_path: null, drafts: [] },
+                             state: { docx_exists: true, docx_changed: stale, pdf_exists: true, pdf_changed: false, pdf_stale: stale }, output_dir: "/mock/out" } as unknown as JobInfo;
       return { job: { job_id, template_id: "resume-ats", template_version: 1, created_at: new Date().toISOString(), docx_path: `/mock/out/${job_id}/Resume.docx`, pdf_path: `/mock/out/${job_id}/Resume.pdf`, pages: 2, status: "pdf_done", eml_path: null, drafts: [] },
                state: { docx_exists: true, docx_changed: stale, pdf_exists: true, pdf_changed: false, pdf_stale: stale } };
     },

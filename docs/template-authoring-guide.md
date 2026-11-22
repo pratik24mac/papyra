@@ -88,6 +88,20 @@ soffice --headless --convert-to pdf --outdir /tmp /tmp/test.docx     # or genera
 Compare the PDF with the original. When it is right, copy the PDF to
 `templates/employment-contract/v1/reference.pdf`: the regression suite then guards it.
 
+## 4b. Several templates at once (batches)
+On the template screen the user can tick several templates and generate them together. The form
+then shows every field once:
+* a field with the **same id and the same type** in several templates (`full_name`, `email`,
+  `case_id`…) is asked once, under "Common details";
+* fields that exist in only one template keep their own section, labelled with the template name;
+* the same id with **different types** (text in one template, select in another) is asked
+  separately for each template; the linter reports this as a warning (M004), and renaming one of
+  the fields is usually the better fix.
+All documents of a batch land in one folder, `<person>-<date>/` (person = `full_name`,
+`employee_name`, `client_name`, `name` or `company_name`, whichever is filled first), with one
+history entry, a tabbed preview and a single email draft carrying every PDF. Give shared fields
+the same id and type in every template you expect to be generated together.
+
 ## 5. Use it in the app
 Two places are scanned, and both work the same way (`<id>/v<n>/schema.yaml`):
 

@@ -83,3 +83,26 @@ test("batch preview has one tab per document and history shows the batch as one 
   await row.getByRole("button", { name: "Open" }).first().click();
   await expect(page.getByRole("tab")).toHaveCount(2);
 });
+
+test("the email step attaches every PDF of the batch", async ({ page }) => {
+  await signIn(page);
+  await page.getByLabel("Select Resume (ATS-friendly)").check();
+  await page.getByLabel("Select Cover note").check();
+  await expect(page.getByText("Asked separately because the templates define them differently", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Generate 2 documents together" }).click();
+  await page.getByRole("button", { name: "Pre-fill with example values" }).first().click();
+  await page.getByLabel("Recipient name").fill("Hiring team"); await page.getByLabel("Note text").fill("See attached.");
+  await page.locator(".ant-select", { has: page.locator("input#headline__cover-note") }).click();
+  await page.locator(".ant-select-item-option", { hasText: "Formal" }).click();
+  await page.getByRole("button", { name: "Review details" }).click();
+  await page.getByRole("button", { name: "Generate document" }).click();
+  await page.getByRole("button", { name: "Preview PDFs" }).click({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Continue to email" }).click();
+  await expect(page.getByText("Attachments (2)")).toBeVisible();
+  await page.getByRole("button", { name: "Create draft…" }).click();
+  const dialog = page.getByRole("dialog").filter({ hasText: "Create the email draft?" });
+  await expect(dialog).toContainText("Resume (ATS-friendly).pdf, Cover note.pdf");
+  await dialog.locator("button", { hasText: /^Create draft$/ }).click();
+  await expect(page.getByText("Email file saved")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("2 attachments", { exact: false })).toBeVisible();
+});
