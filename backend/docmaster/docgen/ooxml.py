@@ -137,15 +137,26 @@ def trim_trailing_blank(doc: _Document) -> int:
     return changes
 
 
+def header_footer_elements(doc: _Document):
+    """The XML of every header and footer part that already exists. Never goes through
+    `section.header`, which *creates* a header part (and needs python-docx's template files)."""
+    for rel in doc.part.rels.values():
+        if rel.is_external:
+            continue
+        if rel.reltype.endswith("/header") or rel.reltype.endswith("/footer"):
+            el = getattr(rel.target_part, "element", None)
+            if el is not None:
+                yield el
+
+
 def strip_word_watermarks(doc: _Document) -> int:
-    """Remove Word's own watermark shapes (text or picture) from every header, so a PDF-level
-    watermark is not doubled. Word names them PowerPlusWaterMarkObject… / WordPictureWatermark…"""
+    """Remove Word's own watermark shapes (text or picture) from every existing header, so a
+    PDF-level watermark is not doubled. Word names them PowerPlusWaterMarkObject… / WordPictureWatermark…"""
     removed = 0
     V = "{urn:schemas-microsoft-com:vml}"; WP = "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}"
-    for section in doc.sections:
-        for hdr in (section.header, section.first_page_header, section.even_page_header):
-            if hdr is None or hdr._element is None:
-                continue
+    for hdr_el in list(header_footer_elements(doc)):
+        if True:
+            hdr = type("H", (), {"_element": hdr_el})()
             for shape in list(hdr._element.iter(f"{V}shape")):
                 ident = (shape.get("id") or "") + (shape.get("{urn:schemas-microsoft-com:office:office}spid") or "")
                 if "watermark" in ident.lower():
@@ -161,11 +172,7 @@ def strip_word_watermarks(doc: _Document) -> int:
 
 
 def _all_runs(doc: _Document):
-    parts = [doc.element.body]
-    for section in doc.sections:
-        for hf in (section.header, section.footer, section.first_page_header, section.first_page_footer, section.even_page_header, section.even_page_footer):
-            if hf is not None and hf._element is not None:
-                parts.append(hf._element)
+    parts = [doc.element.body, *header_footer_elements(doc)]
     for part in parts:
         yield from list(part.iter(qn("w:r")))
 

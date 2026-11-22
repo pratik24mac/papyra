@@ -28,6 +28,7 @@ def run(soffice_override: str | None, data_dir: Path | None, convert: bool = Tru
     from .pdfconv import libreoffice as lo
     checks = check_modules()
     checks.append({"check": "python", "ok": True, "detail": f"{platform.python_version()} frozen={bool(getattr(sys, 'frozen', False))} {platform.platform()}"})
+    checks.append(_postprocessing_check())
     soffice = lo.find_soffice(soffice_override)
     if soffice is None:
         checks.append({"check": "LibreOffice installed", "ok": False, "detail": "soffice not found in the standard locations", "fix": "Install LibreOffice to its default folder, or set DOCMASTER_SOFFICE."})
@@ -61,3 +62,21 @@ def run(soffice_override: str | None, data_dir: Path | None, convert: bool = Tru
         except OSError:
             pass
     return {"ok": all(c["ok"] for c in checks), "checks": checks, "log_path": str(log_path) if log_path else None, "log_tail": log_lines}
+
+
+def _postprocessing_check() -> dict:
+    """Render-time passes that need python-docx's own template files (header creation, numbering):
+    they only break in a mis-packaged engine, so exercise them here."""
+    try:
+        from docx import Document
+        from .docgen.ooxml import strip_word_watermarks, superscript_ordinals, trim_trailing_blank
+        d = Document()
+        d.add_paragraph("Signed on March 12th, 2026"); d.add_paragraph("")
+        strip_word_watermarks(d); superscript_ordinals(d, {"March 12th, 2026"}); trim_trailing_blank(d)
+        d.sections[0].header.is_linked_to_previous = False      # forces python-docx to create a header part from its template file
+        d.sections[0].header.paragraphs[0].text = "check"
+        import io; buf = io.BytesIO(); d.save(buf)
+        return {"check": "document post-processing", "ok": True, "detail": "watermark strip, ordinals, trailing blank, header creation"}
+    except Exception as e:  # noqa: BLE001
+        return {"check": "document post-processing", "ok": False, "detail": f"{type(e).__name__}: {e}",
+                "fix": "The engine is missing python-docx data files. Rebuild with tools/build_backend.py (it bundles the whole docx package)."}

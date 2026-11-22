@@ -144,3 +144,16 @@ def test_watermark_resolves_from_shared_assets_folder(tmp_path):
     schema = yaml.safe_load((TPL / "schema.yaml").read_text()); schema["template"]["watermark"] = {"image": "logo.svg"}
     d = root / "resume-ats" / "v1"; shutil.copytree(TPL, d, ignore=shutil.ignore_patterns("samples", "reference.pdf"))
     assert "S006" not in {f.code for f in lint_template(d / "template.docx", schema)}
+
+
+def test_passes_never_create_header_parts():
+    """A document without headers must stay without headers: creating one needs python-docx's
+    template files, which crashed the packaged engine (2026-11-22)."""
+    from docmaster.docgen.ooxml import superscript_ordinals, header_footer_elements
+    d = Document(); d.add_paragraph("Signed on March 12th, 2026")
+    before = len(d.part.rels)
+    assert list(header_footer_elements(d)) == []
+    assert strip_word_watermarks(d) == 0
+    assert superscript_ordinals(d, {"March 12th, 2026"}) == 1
+    assert len(d.part.rels) == before                                   # no header/footer part was added
+    assert [r.text for r in d.paragraphs[0].runs if r.font.superscript] == ["th"]

@@ -29,7 +29,7 @@ def build_backend() -> Path:
     preflight()
     dist = ROOT / "backend/dist"
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--onedir", "--console", "--name", NAME,
-           "--paths", str(ROOT / "backend"), "--collect-data", "docx", "--collect-submodules", "keyring.backends",
+           "--paths", str(ROOT / "backend"), "--collect-all", "docx", "--collect-submodules", "keyring.backends",
            "--hidden-import", "keyring.backends.macOS", "--hidden-import", "keyring.backends.Windows", "--hidden-import", "psutil", "--collect-submodules", "PIL", "--exclude-module", "tkinter",
            "--specpath", str(ROOT / "backend/pyinstaller"), "--workpath", str(ROOT / "backend/build"),
            "--distpath", str(dist), str(ROOT / "backend/entry.py")]

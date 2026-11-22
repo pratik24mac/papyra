@@ -86,6 +86,9 @@ pub(crate) fn output_dir(app: &AppHandle) -> PathBuf {
     })
 }
 
+trait PipeOk { fn pipe_ok(self) -> Result<Value, RpcError>; }
+impl PipeOk for Value { fn pipe_ok(self) -> Result<Value, RpcError> { Ok(self) } }
+
 fn selftest_out(line: &str) {
     println!("{line}");
     if let Ok(path) = std::env::var("DOCMASTER_SELFTEST_LOG") {
@@ -158,6 +161,10 @@ async fn selftest(app: AppHandle, templates: PathBuf) -> i32 {
     let t = Instant::now();
     let r2 = backend.call("email.create_imap_draft", json!({ "job_id": "selftest", "message": { "to": "hr@example.com", "subject": "x", "body": "" } }), Duration::from_secs(60)).await;
     step(&mut ok, "imap-no-acct", t, &r2, matches!(&r2, Err(e) if e.data["code"] == "EMAIL_ACCOUNT_MISSING" || e.data["code"] == "EMAIL_NETWORK_ERROR" || e.data["code"] == "EMAIL_AUTH_FAILED"));
+    let t = Instant::now();
+    let r2 = backend.call("system.selfcheck", json!({ "convert": true }), Duration::from_secs(600)).await;
+    let failing: Vec<String> = r2.as_ref().ok().and_then(|v| v["checks"].as_array().map(|a| a.iter().filter(|c| c["ok"] == false).map(|c| c["check"].as_str().unwrap_or("?").to_string()).collect())).unwrap_or_default();
+    step(&mut ok, "selfcheck", t, &json!({ "failing": failing }).pipe_ok(), failing.is_empty() && r2.is_ok());
     let t = Instant::now();
     let r2 = backend.call("history.list", json!({}), Duration::from_secs(20)).await;
     step(&mut ok, "history.list", t, &r2, r2.as_ref().map(|v| v["jobs"].as_array().map(|a| a.iter().any(|j| j["job_id"] == "selftest" && j["drafts"] == 1)).unwrap_or(false)).unwrap_or(false));

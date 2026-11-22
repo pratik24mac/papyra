@@ -422,3 +422,12 @@ experience letter, invoice, meeting minutes) with a shared `_assets/sample-water
 different `date_format` each, `| date()` filters, a text_list loop and a select, into the user
 templates folder (or a given folder). Found and fixed: the linter's Jinja environment lacked the
 `date` filter, so any template using `| date("…")` was reported as a syntax error (T002).
+
+## 2026-11-24 — Packaged engine crashed on a watermarked template
+`strip_word_watermarks` and the ordinal pass went through `section.header`, which *creates* a
+header part when none exists and needs `docx/templates/default-header.xml`; `--collect-data docx`
+did not bundle those XML files, so the built app crashed (tests run from source never saw it).
+Fixes: both passes iterate only existing header/footer parts (`header_footer_elements`), the
+build uses `--collect-all docx`, `system.selfcheck` has a "document post-processing" check that
+forces header creation inside the frozen engine, and the Rust self-test runs `system.selfcheck`
+and fails on any failing check.
