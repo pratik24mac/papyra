@@ -94,3 +94,12 @@ describe("rules at the boundaries", () => {
     expect(defaultFor(g)).toEqual([{ a: undefined, c: false }]); expect(defaultFor({ ...g, required: false })).toEqual([]);
   });
 });
+
+
+describe("required rules carry the value type", () => {
+  it("number → type number, date → type object, text → whitespace check", () => {
+    expect(rulesFor({ id: "k", label: "K", type: "number", required: true })[0]).toEqual({ required: true, type: "number", message: "K is required" });
+    expect(rulesFor({ id: "d", label: "D", type: "date", required: true })[0]).toEqual({ required: true, message: "D is required" });
+    expect(rulesFor({ id: "t", label: "T", type: "text", required: true })[0]).toEqual({ required: true, whitespace: true, message: "T is required" });
+  });
+});

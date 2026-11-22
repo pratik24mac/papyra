@@ -26,6 +26,8 @@ test("two templates: shared fields asked once, unique ones per template, one bat
   await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Asha Verma");
   await page.getByLabel("Recipient name").fill("Hiring team");
   await page.getByLabel("Note text").fill("Please see the attached.");
+  await page.getByLabel("Years of experience").fill("5");
+  { const sd = page.getByLabel("Sign date"); await sd.click(); await sd.fill("2026-03-12"); await page.keyboard.press("Enter"); }
   await page.locator(".ant-select", { has: page.locator("input#headline__cover-note") }).click();
   await page.locator(".ant-select-item-option", { hasText: "Formal" }).click();
   await page.getByRole("button", { name: "Review details" }).click();
@@ -46,6 +48,8 @@ test("a failed document in a batch is reported, the others stay usable", async (
   await page.getByRole("button", { name: "Pre-fill with example values" }).first().click();
   await page.getByLabel("Full name", { exact: true }).fill("FAIL PDF");
   await page.getByLabel("Recipient name").fill("x"); await page.getByLabel("Note text").fill("y");
+  await page.getByLabel("Years of experience").fill("5");
+  { const sd = page.getByLabel("Sign date"); await sd.click(); await sd.fill("2026-03-12"); await page.keyboard.press("Enter"); }
   await page.locator(".ant-select", { has: page.locator("input#headline__cover-note") }).click();
   await page.locator(".ant-select-item-option", { hasText: "Formal" }).click();
   await page.getByRole("button", { name: "Review details" }).click();
@@ -63,6 +67,8 @@ test("batch preview has one tab per document and history shows the batch as one 
   await page.getByRole("button", { name: "Generate 2 documents together" }).click();
   await page.getByRole("button", { name: "Pre-fill with example values" }).first().click();
   await page.getByLabel("Recipient name").fill("Hiring team"); await page.getByLabel("Note text").fill("See attached.");
+  await page.getByLabel("Years of experience").fill("5");
+  { const sd = page.getByLabel("Sign date"); await sd.click(); await sd.fill("2026-03-12"); await page.keyboard.press("Enter"); }
   await page.locator(".ant-select", { has: page.locator("input#headline__cover-note") }).click();
   await page.locator(".ant-select-item-option", { hasText: "Formal" }).click();
   await page.getByRole("button", { name: "Review details" }).click();
@@ -92,6 +98,8 @@ test("the email step attaches every PDF of the batch", async ({ page }) => {
   await page.getByRole("button", { name: "Generate 2 documents together" }).click();
   await page.getByRole("button", { name: "Pre-fill with example values" }).first().click();
   await page.getByLabel("Recipient name").fill("Hiring team"); await page.getByLabel("Note text").fill("See attached.");
+  await page.getByLabel("Years of experience").fill("5");
+  { const sd = page.getByLabel("Sign date"); await sd.click(); await sd.fill("2026-03-12"); await page.keyboard.press("Enter"); }
   await page.locator(".ant-select", { has: page.locator("input#headline__cover-note") }).click();
   await page.locator(".ant-select-item-option", { hasText: "Formal" }).click();
   await page.getByRole("button", { name: "Review details" }).click();

@@ -410,6 +410,22 @@
       "validation": {
        "max_length": 800
       }
+     },
+     {
+      "id": "years_experience",
+      "label": "Years of experience",
+      "type": "number",
+      "required": true,
+      "validation": {
+       "min": 0,
+       "max": 60
+      }
+     },
+     {
+      "id": "sign_date",
+      "label": "Sign date",
+      "type": "date",
+      "required": true
      }
     ]
    },

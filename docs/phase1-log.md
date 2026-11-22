@@ -457,3 +457,10 @@ and fails on any failing check.
 * Bugs the suite found and fixed: an empty date format was accepted by Settings; a job id with a
   trailing newline passed the regex (`$` matches before a final newline → `fullmatch`); the form's
   required rule accepted whitespace-only text (now `whitespace: true`).
+
+## 2026-11-24 — Required number/date fields rejected valid input
+Adding `whitespace: true` to the required rule (earlier today) made the validator treat every
+value as text, so a required number (invoice amount, NDA term) showed "is required" with a value
+present. Required rules now carry the value's type: numbers `type: "number"`, dates the stored ISO
+string, text keeps the whitespace check. Mock gained a required number and date; e2e
+`number.spec.ts` covers both (number including 0); batch e2e fills them.

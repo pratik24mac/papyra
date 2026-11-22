@@ -10,7 +10,7 @@ export interface Rule {
   max?: number;
   min?: number;
   pattern?: RegExp;
-  type?: "email" | "url" | "number" | "array";
+  type?: "email" | "url" | "number" | "array" | "object";
   message?: string;
   validator?: (_: unknown, value: unknown) => Promise<void>;
 }
@@ -45,7 +45,13 @@ export function expandDefault(template: string, values: Values): string {
 export function rulesFor(f: FieldSchema): Rule[] {
   const rules: Rule[] = [];
   const v = f.validation ?? {};
-  if (f.required && f.type !== "checkbox" && f.type !== "group_list" && f.type !== "text_list") rules.push({ required: true, whitespace: true, message: `${f.label} is required` });
+  if (f.required && f.type !== "checkbox" && f.type !== "group_list" && f.type !== "text_list") {
+    // the required rule must know the value's type: a number or a date object is not text,
+    // and the whitespace check (blank text counts as empty) only makes sense for text
+    if (f.type === "number") rules.push({ required: true, type: "number", message: `${f.label} is required` });
+    else if (f.type === "date") rules.push({ required: true, message: `${f.label} is required` });   // stored as an ISO string
+    else rules.push({ required: true, whitespace: true, message: `${f.label} is required` });
+  }
   if (f.type === "email") rules.push({ type: "email", message: "Enter a valid email address" });
   if (f.type === "url") rules.push({ pattern: /^https?:\/\/\S+$/, message: "Must start with http:// or https://" });
   if (v.max_length) rules.push({ max: v.max_length, message: `At most ${v.max_length} characters` });
