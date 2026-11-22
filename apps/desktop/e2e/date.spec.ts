@@ -9,7 +9,7 @@ async function openForm(page: Page, errors: string[]) {
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("Engine ready")).toBeVisible();
   await page.locator(".tile", { hasText: "New document" }).click();
-  await page.getByRole("button", { name: "Use this template" }).click();
+  await page.locator(".ant-card", { hasText: "Resume (ATS-friendly)" }).getByRole("button", { name: "Use this template" }).click();
 }
 
 test("typing a date keeps the form alive", async ({ page }) => {

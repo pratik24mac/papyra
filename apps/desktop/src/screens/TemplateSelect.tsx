@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Button, Card, Col, Row, Skeleton, Space, Tag, Typography, message } from "antd";
+import { Alert, Button, Card, Checkbox, Col, Row, Skeleton, Space, Tag, Typography, message } from "antd";
 import { FolderOpenOutlined, ReloadOutlined } from "@ant-design/icons";
 import { backend } from "../api/backend";
 import type { TemplateSummary } from "../api/types";
 import { countRequired, defaultValues } from "../lib/schema";
+import { mergeTemplates } from "../lib/merge";
 import { useStore } from "../store";
 
 export function TemplateSelect() {
@@ -11,6 +12,7 @@ export function TemplateSelect() {
   const [templates, setTemplates] = useState<TemplateSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
   const load = useCallback(async (rescan = false) => {
     setBusy(true); setError(null);
     try { const api = await backend(); setTemplates(rescan ? await api.rescanTemplates() : await api.listTemplates()); }
@@ -23,11 +25,18 @@ export function TemplateSelect() {
 
   if (error) return <Alert type="error" showIcon message="Could not load templates" description={error} />;
   if (!templates) return <Skeleton active />;
+  const toggle = (id: string, on: boolean) => setPicked((p) => (on ? [...p.filter((x) => x !== id), id] : p.filter((x) => x !== id)));
+  const startBatch = () => {
+    const chosen = templates.filter((t) => picked.includes(t.id) && t.status === "ok");
+    if (chosen.length < 2) return;
+    const merged = mergeTemplates(chosen);
+    dispatch({ type: "selectTemplates", templates: chosen, values: defaultValues(merged.summary) });
+  };
   const openFolder = async () => { try { const d = await (await backend()).openTemplatesDir(); message.info(`Templates folder: ${d}`); } catch (e) { message.error(String((e as Error)?.message ?? e)); } };
   return (
     <div>
       <Space style={{ width: "100%", justifyContent: "space-between", marginBottom: 8 }} wrap>
-        <Typography.Text type="secondary">Choose the document you want to create. Each template defines its own set of inputs.</Typography.Text>
+        <Typography.Text type="secondary">Choose one template, or tick several to fill their shared details once and generate them together.</Typography.Text>
         <Space>
           <Button size="small" icon={<FolderOpenOutlined />} onClick={openFolder}>My templates folder</Button>
           <Button size="small" icon={<ReloadOutlined />} loading={busy} onClick={() => load(true)}>Rescan templates</Button>
@@ -40,7 +49,7 @@ export function TemplateSelect() {
           const broken = t.status === "error";
           return (
             <Col xs={24} md={12} key={`${t.id}-${t.source}`}>
-              <Card className="glass" title={<Space>{t.name}{t.source === "user" && <Tag color="purple">my template</Tag>}{broken && <Tag color="red">needs fixing</Tag>}</Space>} extra={<Tag>v{t.version}</Tag>}
+              <Card className="glass" title={<Space>{!broken && <Checkbox checked={picked.includes(t.id)} onChange={(e) => toggle(t.id, e.target.checked)} aria-label={`Select ${t.name}`} />}{t.name}{t.source === "user" && <Tag color="purple">my template</Tag>}{broken && <Tag color="red">needs fixing</Tag>}</Space>} extra={<Tag>v{t.version}</Tag>}
                 actions={[broken
                   ? <Button key="fix" onClick={openFolder} icon={<FolderOpenOutlined />}>Open folder to fix</Button>
                   : <Button key="use" type="primary" onClick={() => dispatch({ type: "selectTemplate", template: t, values: defaultValues(t) })}>Use this template</Button>]}>
@@ -60,6 +69,15 @@ export function TemplateSelect() {
           );
         })}
       </Row>
+      {picked.length > 0 && (
+        <div className="glass" style={{ position: "sticky", bottom: 12, marginTop: 16, padding: 12, borderRadius: 12, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <Typography.Text>{picked.length} selected: {templates.filter((t) => picked.includes(t.id)).map((t) => t.name).join(", ")}</Typography.Text>
+          <Space>
+            <Button size="small" onClick={() => setPicked([])}>Clear</Button>
+            <Button type="primary" disabled={picked.length < 2} onClick={startBatch}>Generate {picked.length} documents together</Button>
+          </Space>
+        </div>
+      )}
     </div>
   );
 }

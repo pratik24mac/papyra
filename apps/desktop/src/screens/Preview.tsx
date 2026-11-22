@@ -6,11 +6,11 @@ import { backend } from "../api/backend";
 import type { JobInfo } from "../api/types";
 import { PdfViewer } from "../components/PdfViewer";
 import { describeError } from "../lib/errors";
-import { useStore } from "../store";
+import { readyJobIds, useStore } from "../store";
 
 export function Preview() {
   const { state, dispatch } = useStore();
-  const jobId = state.job?.jobId;
+  const jobId = readyJobIds(state.job)[0];
   const [info, setInfo] = useState<JobInfo | null>(null);
   const [pdf, setPdf] = useState<ArrayBuffer | null>(null);
   const [busy, setBusy] = useState<string | null>(null);

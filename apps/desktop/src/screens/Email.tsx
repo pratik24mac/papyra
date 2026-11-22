@@ -6,13 +6,13 @@ import { MailOutlined, FileOutlined, FolderOpenOutlined, CloudUploadOutlined } f
 import { backend } from "../api/backend";
 import type { DraftMessage, EmlResult, ImapAccountInfo, ImapDraftResult, JobInfo } from "../api/types";
 import { describeError } from "../lib/errors";
-import { useStore } from "../store";
+import { readyJobIds, useStore } from "../store";
 
 type Mode = "eml" | "imap";
 
 export function Email() {
   const { state, dispatch } = useStore();
-  const jobId = state.job?.jobId;
+  const jobId = readyJobIds(state.job)[0];
   const [form] = Form.useForm<DraftMessage>();
   const [mode, setMode] = useState<Mode>("eml");
   const [account, setAccount] = useState<ImapAccountInfo | null>(null);

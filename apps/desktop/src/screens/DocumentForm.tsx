@@ -5,6 +5,8 @@ import { backend } from "../api/backend";
 import { FieldGrid } from "../lib/layout";
 import { describeError } from "../lib/errors";
 import { defaultValues, expandDefault, parseServerError } from "../lib/schema";
+import { mergeExamples, mergeTemplates } from "../lib/merge";
+import type { Values } from "../api/types";
 import { useStore } from "../store";
 
 export function DocumentForm() {
@@ -48,7 +50,16 @@ export function DocumentForm() {
   const prefill = async () => {
     setPrefilling(true);
     try {
-      const v = await (await backend()).exampleValues(t.id);
+      const api = await backend();
+      let v: Values;
+      if (state.templates.length > 1) {
+        const merged = mergeTemplates(state.templates);
+        const examples: Record<string, Values> = {};
+        for (const tpl of state.templates) if (tpl.has_examples) examples[tpl.id] = await api.exampleValues(tpl.id);
+        v = mergeExamples(merged, examples);
+      } else {
+        v = await api.exampleValues(t.id);
+      }
       form.setFieldsValue(v); dispatch({ type: "setValues", values: v });
       message.success("Form pre-filled with the template's example values");
     } catch (e) { message.error(describeError(e).detail); } finally { setPrefilling(false); }

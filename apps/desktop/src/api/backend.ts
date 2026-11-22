@@ -1,7 +1,7 @@
 // The only way the UI reaches the backend. Inside Tauri it goes WebView → Rust `backend_call` →
 // Python; in a plain browser (vite dev without Tauri) a mock serves static data so screens can be
 // developed and screenshot-tested without the sidecar.
-import type { AppSettings, BackendStatus, SelfCheck, HistoryRow, PrivacySummary, ReachabilityResult, ConvertResult, DraftMessage, EmlResult, ImapAccountInfo, ImapAccountInput, ImapDraftResult, Diagnostics, FileKind, GenerateResult, JobInfo, PingResult, ProgressEvent, RpcError, TemplateSummary, Values } from "./types";
+import type { AppSettings, BackendStatus, BatchResult, SelfCheck, HistoryRow, PrivacySummary, ReachabilityResult, ConvertResult, DraftMessage, EmlResult, ImapAccountInfo, ImapAccountInput, ImapDraftResult, Diagnostics, FileKind, GenerateResult, JobInfo, PingResult, ProgressEvent, RpcError, TemplateSummary, Values } from "./types";
 
 type Unlisten = () => void;
 
@@ -17,6 +17,9 @@ export interface BackendApi {
   rescanTemplates(): Promise<TemplateSummary[]>;
   openTemplatesDir(): Promise<string>;
   generate(templateId: string, values: Values, jobId: string, outputDir?: string | null): Promise<GenerateResult>;
+  generateBatch(templateIds: string[], values: Values, valuesByTemplate: Record<string, Values>, batchId: string, outputDir?: string | null): Promise<BatchResult>;
+  batchInfo(batchId: string): Promise<BatchResult>;
+  historyDeleteBatch(batchId: string, deleteFiles: boolean): Promise<{ removed_rows: number; removed_files: boolean }>;
   exampleValues(templateId: string): Promise<Values>;
   status(): Promise<BackendStatus>;
   prepareEml(jobId: string, message: DraftMessage): Promise<EmlResult>;
@@ -63,6 +66,9 @@ async function tauriApi(): Promise<BackendApi> {
     openLibreOfficeDownload: () => invoke<void>("open_libreoffice_download"),
     listTemplates: async () => (await call<{ templates: TemplateSummary[] }>("templates.list")).templates,
     generate: (template_id, values, job_id, output_dir) => call<GenerateResult>("docgen.generate", { template_id, values, job_id, ...(output_dir ? { output_dir } : {}) }),
+    generateBatch: (templates, values, values_by_template, batch_id, output_dir) => call<BatchResult>("docgen.generate_batch", { templates, values, values_by_template, batch_id, ...(output_dir ? { output_dir } : {}) }),
+    batchInfo: (batch_id) => call<BatchResult>("batches.get", { batch_id }),
+    historyDeleteBatch: (batch_id, delete_files) => call<{ removed_rows: number; removed_files: boolean }>("history.delete_batch", { batch_id, delete_files }),
     rescanTemplates: async () => (await call<{ templates: TemplateSummary[] }>("templates.rescan")).templates,
     openTemplatesDir: () => invoke<string>("open_templates_dir"),
     exampleValues: async (template_id) => (await call<{ values: Values }>("templates.example_values", { template_id })).values,
@@ -115,6 +121,7 @@ async function mockApi(): Promise<BackendApi> {
     date_format_example: presets.find((p) => p[0] === dateFormat)?.[1] ?? "12 March 2026", date_format_presets: presets.map(([format, example]) => ({ format, example })),
     defaults: { output_dir: "/Users/you/Documents/Papyra" }, settings_file: "/mock/settings.json" });
   const historyRows: HistoryRow[] = [];
+  const mockBatches: Record<string, BatchResult> = {};
   let stale = false;   // the mock toggles staleness: window.__mockStale = true simulates an external edit
   return {
     login: async (u, p) => { await sleep(300); if (u === "admin" && p === "DocMaster!2026") { user = "admin"; return user; } throw rpcError("AUTH_FAILED", "Incorrect username or password."); },
@@ -128,7 +135,15 @@ async function mockApi(): Promise<BackendApi> {
     imapRemoveAccount: async () => { imapAccount = null; return { configured: false }; },
     settingsGet: async () => settingsObj(),
     settingsSet: async (k, v) => { if (k === "output_dir") outputDir = (v as string | null) ?? "/Users/you/Documents/Papyra"; if (k === "offline_mode") offline = Boolean(v); if (k === "keep_history") keepHistory = Boolean(v); if (k === "date_format") dateFormat = String(v); return settingsObj(); },
-    historyList: async () => ({ jobs: [...historyRows].reverse(), total: historyRows.length }),
+    historyList: async () => {
+      const out: HistoryRow[] = []; const seen: Record<string, HistoryRow> = {};
+      for (const r of [...historyRows].reverse()) {
+        if (!r.batch_id) { out.push({ ...r, kind: "job" }); continue; }
+        if (!seen[r.batch_id]) { seen[r.batch_id] = { ...r, kind: "batch", job_id: r.batch_id, documents: [], template_id: "", pages: 0 }; out.push(seen[r.batch_id]); }
+        const b = seen[r.batch_id]; b.documents!.push(r); b.pages = (b.pages ?? 0) + (r.pages ?? 0); b.template_id = b.documents!.map((d) => d.template_name ?? d.template_id).join(", ");
+      }
+      return { jobs: out, total: historyRows.length };
+    },
     historyDelete: async (job_id, delete_files) => { const i = historyRows.findIndex((r) => r.job_id === job_id); if (i >= 0) historyRows.splice(i, 1); return { removed_row: i >= 0, removed_files: delete_files }; },
     historyClear: async (delete_files) => { const n = historyRows.length; historyRows.length = 0; return { removed_rows: n, removed_job_folders: delete_files ? n : 0 }; },
     privacySummary: async () => ({ stored: [
@@ -178,6 +193,28 @@ async function mockApi(): Promise<BackendApi> {
     status: async () => ({ state: "ready", version: "mock", pid: 0, frozen: false }),
     onProgress: async (cb) => { progressListeners.add(cb); return () => progressListeners.delete(cb); },
     onStatus: async (cb) => { statusListeners.add(cb); return () => statusListeners.delete(cb); },
+    generateBatch: async (ids, values, _vbt, batch_id, output_dir) => {
+      const base = output_dir || "/mock/out"; const person = String(values.full_name || "batch");
+      const dir = `${base}/${person}-2026-11-23`;
+      const docs: BatchResult["documents"] = [];
+      progressListeners.forEach((cb) => cb({ job_id: batch_id, stage: "validating", message: `Checking values for ${ids.length} documents` }));
+      for (let i = 0; i < ids.length; i++) {
+        const t = templates.find((x) => x.id === ids[i]); const job_id = `${batch_id}-${i}`;
+        const extra = { batch_id, document: ids[i], document_name: t?.name ?? ids[i], index: i, total: ids.length, doc_job_id: job_id };
+        const emit = (stage: ProgressEvent["stage"], message: string) => progressListeners.forEach((cb) => cb({ job_id, stage, message, ...extra }));
+        emit("rendering_docx", "Generating Word document"); await sleep(250);
+        emit("docx_done", "Word document created"); emit("converting_pdf", "Converting to PDF"); await sleep(350);
+        if (String(values.full_name) === "FAIL PDF" && i === 0) { emit("failed", "PDF conversion failed"); docs.push({ job_id, template_id: ids[i], template_name: t?.name ?? ids[i], status: "failed", docx_path: `${dir}/doc.docx`, pdf_path: null, pages: null, error: { code: "PDF_CONVERSION_FAILED", message: "LibreOffice failed (mock)" } }); continue; }
+        emit("pdf_done", "PDF created (2 pages)");
+        docs.push({ job_id, template_id: ids[i], template_name: t?.name ?? ids[i], status: "pdf_done", docx_path: `${dir}/${t?.name ?? ids[i]}.docx`, pdf_path: `${dir}/${t?.name ?? ids[i]}.pdf`, pages: 2, pdf_seconds: 0.4 });
+        if (keepHistory) historyRows.push({ job_id, template_id: ids[i], template_version: 1, created_at: new Date().toISOString(), status: "pdf_done", output_dir: base, docx_path: `${dir}/x.docx`, pdf_path: `${dir}/x.pdf`, pages: 2, error_code: null, drafts: 0, docx_exists: true, pdf_exists: true, batch_id, batch_dir: dir, template_name: t?.name ?? ids[i] });
+      }
+      progressListeners.forEach((cb) => cb({ job_id: batch_id, stage: "batch_done", message: `${docs.filter((d) => d.status === "pdf_done").length} of ${docs.length} documents ready` }));
+      const result: BatchResult = { batch_id, batch_dir: dir, person, ok: docs.every((d) => d.status === "pdf_done"), documents: docs, total_ms: 900 };
+      mockBatches[batch_id] = result; return result;
+    },
+    batchInfo: async (batch_id) => { const b = mockBatches[batch_id]; if (!b) throw rpcError("JOB_NOT_FOUND", "This document is no longer available."); return { ...b, documents: b.documents.map((d) => ({ ...d, state: { docx_exists: true, docx_changed: false, pdf_exists: d.status === "pdf_done", pdf_changed: false, pdf_stale: d.status !== "pdf_done" || Boolean((window as unknown as { __mockStale?: boolean }).__mockStale) } })) }; },
+    historyDeleteBatch: async (batch_id, delete_files) => { const before = historyRows.length; for (let i = historyRows.length - 1; i >= 0; i--) if (historyRows[i].batch_id === batch_id) historyRows.splice(i, 1); return { removed_rows: before - historyRows.length, removed_files: delete_files }; },
     generate: async (template_id, values, job_id, output_dir) => {
       const base = output_dir || "/mock/out";
       const emit = (stage: ProgressEvent["stage"], message: string) => progressListeners.forEach((cb) => cb({ job_id, stage, message }));

@@ -156,6 +156,11 @@ export interface AppSettings {
 }
 
 export interface HistoryRow {
+  kind?: "job" | "batch";
+  batch_id?: string;
+  batch_dir?: string | null;
+  template_name?: string | null;
+  documents?: HistoryRow[];
   job_id: string;
   template_id: string;
   template_version: number;
@@ -228,7 +233,7 @@ export interface RpcError {
   data: { code: ErrorCode; errors?: string[]; docx_path?: string; pdf_path?: string; job_id?: string; [k: string]: unknown };
 }
 
-export type ProgressStage = "validating" | "rendering_docx" | "docx_done" | "converting_pdf" | "pdf_done" | "email_connecting";
+export type ProgressStage = "validating" | "rendering_docx" | "docx_done" | "converting_pdf" | "pdf_done" | "email_connecting" | "failed" | "batch_done";
 
 export interface ProgressEvent {
   job_id: string;
@@ -236,6 +241,35 @@ export interface ProgressEvent {
   message: string;
   docx_path?: string;
   pdf_path?: string;
+  // batch generation: which document this event belongs to
+  batch_id?: string;
+  document?: string;
+  document_name?: string;
+  index?: number;
+  total?: number;
+  doc_job_id?: string;
+}
+
+export interface BatchDocument {
+  job_id: string;
+  template_id: string;
+  template_name: string;
+  status: "pdf_done" | "failed";
+  docx_path: string | null;
+  pdf_path: string | null;
+  pages: number | null;
+  pdf_seconds?: number;
+  error?: { code: string; message: string; data?: Record<string, unknown> };
+  state?: JobFileState;
+}
+
+export interface BatchResult {
+  batch_id: string;
+  batch_dir: string;
+  person: string;
+  ok: boolean;
+  documents: BatchDocument[];
+  total_ms: number;
 }
 
 export type BackendStatus =

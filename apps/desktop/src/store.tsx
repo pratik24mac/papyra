@@ -2,24 +2,34 @@
 // (spec §5.7) because they live here, not in the form.
 import { createContext, useContext, useEffect, useReducer, type ReactNode } from "react";
 import { backend } from "./api/backend";
-import type { BackendStatus, GenerateResult, ProgressEvent, TemplateSummary, Values } from "./api/types";
+import type { BackendStatus, BatchResult, GenerateResult, ProgressEvent, TemplateSummary, Values } from "./api/types";
+import { mergeTemplates } from "./lib/merge";
 
 export type View = "dashboard" | "wizard" | "settings";
 export type Step = 0 | 1 | 2 | 3 | 4 | 5; // template, details, review, generate, preview, email
 
 export interface Job {
-  jobId: string;
+  jobId: string;                   // single document job id, or the batch id
   stages: ProgressEvent[];
   result: GenerateResult | null;
+  batch: BatchResult | null;       // set when several templates were generated together
   error: unknown | null;
   inFlight: boolean;
+}
+
+/** Job ids of the generated documents that have a usable PDF (single or batch). */
+export function readyJobIds(job: Job | null): string[] {
+  if (!job) return [];
+  if (job.batch) return job.batch.documents.filter((d) => d.status === "pdf_done").map((d) => d.job_id);
+  return job.result || !job.inFlight ? [job.jobId] : [];
 }
 
 export interface State {
   user: string | null;
   view: View;
   step: Step;
-  template: TemplateSummary | null;
+  template: TemplateSummary | null;        // the (possibly merged) template driving the form
+  templates: TemplateSummary[];            // the selected templates (1..N)
   values: Values;
   job: Job | null;
   backend: BackendStatus;
@@ -30,6 +40,9 @@ type Action =
   | { type: "navigate"; view: View }
   | { type: "step"; step: Step }
   | { type: "selectTemplate"; template: TemplateSummary; values: Values }
+  | { type: "selectTemplates"; templates: TemplateSummary[]; values: Values }
+  | { type: "batchDone"; result: BatchResult }
+  | { type: "openBatch"; batch: BatchResult }
   | { type: "setValues"; values: Values }
   | { type: "setOutputDir"; dir: string | null }
   | { type: "jobStart"; jobId: string }
@@ -42,19 +55,22 @@ type Action =
   | { type: "signOut" }
   | { type: "reset" };
 
-const initial: State = { outputDir: null, user: null, view: "dashboard", step: 0, template: null, values: {}, job: null, backend: { state: "starting", attempt: 0 } };
+const initial: State = { outputDir: null, user: null, view: "dashboard", step: 0, template: null, templates: [], values: {}, job: null, backend: { state: "starting", attempt: 0 } };
 
 function reducer(s: State, a: Action): State {
   switch (a.type) {
     case "navigate": return { ...s, view: a.view };
     case "step": return { ...s, step: a.step };
-    case "selectTemplate": return { ...s, template: a.template, values: a.values, job: null, step: 1 };
+    case "selectTemplate": return { ...s, template: a.template, templates: [a.template], values: a.values, job: null, step: 1 };
+    case "selectTemplates": return { ...s, template: mergeTemplates(a.templates).summary, templates: a.templates, values: a.values, job: null, step: 1 };
+    case "batchDone": return s.job ? { ...s, job: { ...s.job, batch: a.result, inFlight: false } } : s;
+    case "openBatch": return { ...s, view: "wizard", step: 4, job: { jobId: a.batch.batch_id, stages: [], result: null, batch: a.batch, error: null, inFlight: false } };
     case "setValues": return { ...s, values: a.values };
     case "setOutputDir": return { ...s, outputDir: a.dir };
-    case "jobStart": return { ...s, step: 3, job: { jobId: a.jobId, stages: [], result: null, error: null, inFlight: true } };
-    case "openJob": return { ...s, view: "wizard", step: 4, template: s.template, values: s.values, job: { jobId: a.jobId, stages: [], result: null, error: null, inFlight: false } };
+    case "jobStart": return { ...s, step: 3, job: { jobId: a.jobId, stages: [], result: null, batch: null, error: null, inFlight: true } };
+    case "openJob": return { ...s, view: "wizard", step: 4, template: s.template, values: s.values, job: { jobId: a.jobId, stages: [], result: null, batch: null, error: null, inFlight: false } };
     case "jobProgress":
-      if (!s.job || a.event.job_id !== s.job.jobId) return s;
+      if (!s.job || (a.event.job_id !== s.job.jobId && a.event.batch_id !== s.job.jobId)) return s;
       return { ...s, job: { ...s.job, stages: [...s.job.stages, a.event] } };
     case "jobDone": return s.job ? { ...s, job: { ...s.job, result: a.result, inFlight: false } } : s;
     case "jobFailed": return s.job ? { ...s, job: { ...s.job, error: a.error, inFlight: false } } : s;
@@ -96,8 +112,14 @@ export async function startGeneration(state: State, dispatch: (a: Action) => voi
   dispatch({ type: "jobStart", jobId });
   try {
     const api = await backend();
-    const result = await api.generate(state.template.id, state.values, jobId, state.outputDir);
-    dispatch({ type: "jobDone", result });
+    if (state.templates.length > 1) {
+      const merged = mergeTemplates(state.templates); const { values, byTemplate } = merged.split(state.values);
+      const result = await api.generateBatch(state.templates.map((t) => t.id), values, byTemplate, jobId, state.outputDir);
+      dispatch({ type: "batchDone", result });
+    } else {
+      const result = await api.generate(state.template.id, state.values, jobId, state.outputDir);
+      dispatch({ type: "jobDone", result });
+    }
   } catch (error) {
     dispatch({ type: "jobFailed", error });
   }

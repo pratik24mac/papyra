@@ -22,7 +22,7 @@ test("rejects a wrong password and accepts the right one", async ({ page }) => {
 test("full wizard: template → form → review → generate → preview → email draft", async ({ page }) => {
   await signIn(page);
   await page.locator(".tile", { hasText: "New document" }).click();
-  await page.getByRole("button", { name: "Use this template" }).click();
+  await page.locator(".ant-card", { hasText: "Resume (ATS-friendly)" }).getByRole("button", { name: "Use this template" }).click();
   // validation blocks an empty form
   await page.getByRole("button", { name: "Review details" }).click();
   await expect(page.getByText("Full name is required")).toBeVisible();
@@ -46,7 +46,7 @@ test("full wizard: template → form → review → generate → preview → ema
 test("stale PDF blocks preview actions until regenerated", async ({ page }) => {
   await signIn(page);
   await page.locator(".tile", { hasText: "New document" }).click();
-  await page.getByRole("button", { name: "Use this template" }).click();
+  await page.locator(".ant-card", { hasText: "Resume (ATS-friendly)" }).getByRole("button", { name: "Use this template" }).click();
   await page.getByRole("button", { name: "Pre-fill with example values" }).first().click();
   await page.getByRole("button", { name: "Review details" }).click();
   await page.getByRole("button", { name: "Generate document" }).click();
