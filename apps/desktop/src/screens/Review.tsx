@@ -1,6 +1,9 @@
 import { Button, Card, Descriptions, Space, Typography } from "antd";
 import type { FieldSchema, Values } from "../api/types";
 import { formatValue, isEmpty } from "../lib/schema";
+import { effectiveDateFormat, formatDate } from "../lib/dates";
+import { useEffect, useState } from "react";
+import { backend } from "../api/backend";
 import { startGeneration, useStore } from "../store";
 import { SaveToRow } from "../components/SaveToRow";
 
@@ -22,12 +25,19 @@ function Value({ f, v }: { f: FieldSchema; v: unknown }) {
     const items = (v as string[]) ?? [];
     return items.length ? <ol style={{ margin: 0, paddingLeft: 20 }}>{items.map((x, i) => <li key={i} style={{ whiteSpace: "pre-wrap" }}>{x}</li>)}</ol> : <Typography.Text type="secondary">—</Typography.Text>;
   }
-  return <Typography.Text style={{ whiteSpace: "pre-wrap" }} type={isEmpty(v) ? "secondary" : undefined}>{formatValue(f, v)}</Typography.Text>;
+  const shown = f.type === "date" && typeof v === "string" && v ? `${formatDate(v, dateFormat(f))}` : formatValue(f, v);
+  return <Typography.Text style={{ whiteSpace: "pre-wrap" }} type={isEmpty(v) ? "secondary" : undefined}>{shown}</Typography.Text>;
 }
+
+let appDateFormat: string | null = null;        // the user's explicit Settings choice, loaded once per review
+let templateDateFormat: string | undefined;
+function dateFormat(f: FieldSchema): string { return effectiveDateFormat(f.format, appDateFormat, templateDateFormat); }
 
 export function Review() {
   const { state, dispatch } = useStore();
   const t = state.template!;
+  const [, bump] = useState(0);
+  useEffect(() => { backend().then(async (api) => { const s = await api.settingsGet(); appDateFormat = s.date_format_explicit ?? null; templateDateFormat = state.templates.length === 1 ? state.templates[0].date_format ?? undefined : undefined; bump((n) => n + 1); }); }, [state.templates]);
   const ready = state.backend.state === "ready";
   return (
     <Space orientation="vertical" size="middle" style={{ width: "100%" }}>

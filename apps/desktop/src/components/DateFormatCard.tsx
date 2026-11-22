@@ -20,7 +20,7 @@ export function DateFormatCard() {
   return (
     <Card className="glass" title="Dates in documents">
       <Space orientation="vertical" style={{ width: "100%" }}>
-        <Typography.Text type="secondary">Dates are entered with a date picker and printed in this format in every document. A template can set its own format, and a single field can override both.</Typography.Text>
+        <Typography.Text type="secondary">Dates are entered with a date picker and printed in this format in every document, including batches. A template's own date_format is used only until you choose one here; a single field with its own format always keeps it.</Typography.Text>
         <Space wrap>
           <Select style={{ minWidth: 320 }} value={isPreset ? s.date_format : "custom"} onChange={(v) => v !== "custom" && apply(v)}
             options={[...presets.map((p) => ({ value: p.format, label: `${p.example}  ·  ${p.format}` })), { value: "custom", label: "Custom…" }]} />

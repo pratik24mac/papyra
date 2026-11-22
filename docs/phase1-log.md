@@ -464,3 +464,11 @@ value as text, so a required number (invoice amount, NDA term) showed "is requir
 present. Required rules now carry the value's type: numbers `type: "number"`, dates the stored ISO
 string, text keeps the whitespace check. Mock gained a required number and date; e2e
 `number.spec.ts` covers both (number including 0); batch e2e fills them.
+
+## 2026-11-24 — Date format precedence
+The samples each pin a `date_format`, and the template beat the Settings choice, so changing
+Settings → Dates seemed to affect only templates without one ("only the last document"). Now:
+field `format` → explicit Settings choice (`settings.explicit`) → template `date_format` → default.
+`templates.list` exposes `date_format`; `settings.get` exposes `date_format_explicit`; the review
+step shows dates exactly as they will print (`apps/desktop/src/lib/dates.ts` mirrors the engine).
+Batch test proves every document follows the Settings format once chosen.

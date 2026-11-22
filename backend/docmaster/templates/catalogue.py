@@ -64,7 +64,8 @@ class Template:
         return {"id": self.id, "version": self.version, "name": t.get("name", self.id), "description": t.get("description", ""),
                 "groups": self.schema.get("groups", []), "source": self.source, "dir": str(self.dir),
                 "status": "ok" if self.usable else "error", "problems": list(self.problems),
-                "has_examples": any((self.dir / n).exists() for n in ("values.example.yaml", "values.example.json"))}
+                "has_examples": any((self.dir / n).exists() for n in ("values.example.yaml", "values.example.json")),
+                "date_format": t.get("date_format")}
 
 
 @dataclass

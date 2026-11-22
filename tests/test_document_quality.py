@@ -45,13 +45,17 @@ def test_dates_render_with_field_template_and_setting_precedence(tmp_path):
     values = {"start": "2026-03-05", "signed": "2026-03-22", "events": [{"when": "2026-01-02", "what": "kick-off"}]}
     out = render_docx(src, schema_with_dates(), values, tmp_path / "o.docx", default_date_format="MMMM D, YYYY")
     text = "\n".join(p.text for p in Document(out).paragraphs)
-    assert "Start 05/03/2026" in text               # template date_format beats the app setting
+    assert "Start 05/03/2026" in text               # template date_format beats the built-in default
     assert "signed 22nd March 2026" in text         # field format beats the template
     assert "iso 2026-03-05" in text                 # in-template filter re-formats from the ISO value
     assert "02/01/2026: kick-off" in text           # dates inside repeating groups too
     schema = schema_with_dates(); del schema["template"]["date_format"]
     out = render_docx(src, schema, values, tmp_path / "o2.docx", default_date_format="MMMM D, YYYY")
-    assert "Start March 5, 2026" in Document(out).paragraphs[0].text   # app setting applies when the template has none
+    assert "Start March 5, 2026" in Document(out).paragraphs[0].text   # default applies when the template has none
+    out = render_docx(src, schema_with_dates(), values, tmp_path / "o3.docx", default_date_format="MMMM D, YYYY", app_date_format="DD-MMM-YYYY")
+    text = "\n".join(p.text for p in Document(out).paragraphs)
+    assert "Start 05-Mar-2026" in text               # the user's explicit Settings choice beats the template's default
+    assert "signed 22nd March 2026" in text         # a field-level format still wins over everything
 
 
 def test_date_format_setting_is_validated(tmp_path):

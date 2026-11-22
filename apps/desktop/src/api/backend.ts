@@ -117,7 +117,7 @@ async function mockApi(): Promise<BackendApi> {
   let offline = true, keepHistory = true;   // offline by default, like the real backend
   let dateFormat = "D MMMM YYYY";
   const presets = [["D MMMM YYYY", "12 March 2026"], ["DD/MM/YYYY", "12/03/2026"], ["MM/DD/YYYY", "03/12/2026"], ["YYYY-MM-DD", "2026-03-12"], ["MMMM D, YYYY", "March 12, 2026"], ["Do MMMM YYYY", "12th March 2026"], ["DD-MMM-YYYY", "12-Mar-2026"], ["dddd, D MMMM YYYY", "Thursday, 12 March 2026"]];
-  const settingsObj = (): AppSettings => ({ output_dir: outputDir, offline_mode: offline, keep_history: keepHistory, date_format: dateFormat, last_output_dir: null,
+  const settingsObj = (): AppSettings => ({ output_dir: outputDir, offline_mode: offline, keep_history: keepHistory, date_format: dateFormat, date_format_explicit: dateFormat === "D MMMM YYYY" ? null : dateFormat, last_output_dir: null,
     date_format_example: presets.find((p) => p[0] === dateFormat)?.[1] ?? "12 March 2026", date_format_presets: presets.map(([format, example]) => ({ format, example })),
     defaults: { output_dir: "/Users/you/Documents/Papyra" }, settings_file: "/mock/settings.json" });
   const historyRows: HistoryRow[] = [];

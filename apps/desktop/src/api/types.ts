@@ -28,6 +28,8 @@ export interface FieldSchema {
   validation?: FieldValidation;
   /** text fields: force the case as the user types and in the document */
   transform?: "upper" | "lower" | "title" | "none";
+  /** date fields: a format that overrides the Settings choice */
+  format?: string;
   options?: (SelectOption | string)[];
   /** group_list: the fields of each item */
   item_fields?: FieldSchema[];
@@ -54,6 +56,8 @@ export interface TemplateSummary {
   status: "ok" | "error";
   problems: string[];
   has_examples: boolean;
+  /** the template's default date format (used only when the user has not chosen one in Settings) */
+  date_format?: string | null;
 }
 
 export type Values = Record<string, unknown>;
@@ -154,6 +158,8 @@ export interface AppSettings {
   offline_mode: boolean;
   keep_history: boolean;
   date_format: string;
+  /** null when the built-in default is in effect (no explicit choice yet) */
+  date_format_explicit?: string | null;
   last_output_dir: string | null;
   date_format_example: string;
   date_format_presets: { format: string; example: string }[];

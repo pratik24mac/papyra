@@ -42,6 +42,11 @@ class Settings:
             merged = {**self.defaults, **self._data}
         return {**merged, "defaults": dict(self.defaults), "settings_file": str(self.path)}
 
+    def explicit(self, key: str):
+        """The value the user set, or None when the default is in effect."""
+        with self._lock:
+            return self._data.get(key)
+
     def output_dir(self) -> Path:
         with self._lock:
             return Path(self._data.get("output_dir") or self.defaults["output_dir"])

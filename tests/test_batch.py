@@ -105,3 +105,25 @@ def test_batch_validation_names_the_template_and_overrides_apply(tmp_path):
     names = {d["template_id"]: Path(d["docx_path"]).name for d in r["documents"]}
     assert names["cover-note"].startswith("Override Person") and names["resume-ats"].startswith(values["full_name"])
     assert r["person"] == values["full_name"]                                              # folder named from the shared values
+
+
+@pytest.mark.skipif(not HAS_LO, reason="LibreOffice not installed")
+def test_settings_date_format_applies_to_every_document_in_a_batch(tmp_path):
+    """Templates may each carry a date_format; once the user picks one in Settings it must win in all of them."""
+    from docx import Document
+    user = tmp_path / "out" / "templates"
+    for tid, fmt in (("doc-a", "DD/MM/YYYY"), ("doc-b", "MMMM Do, YYYY")):
+        d = second_template(user, tid, tid.upper(), date_format=fmt)
+        schema = yaml.safe_load((d / "schema.yaml").read_text())
+        schema["groups"][0]["fields"].append({"id": "signed_on", "label": "Signed", "type": "date", "required": True})
+        (d / "schema.yaml").write_text(yaml.safe_dump(schema, sort_keys=False, allow_unicode=True))
+        doc = Document(d / "template.docx"); doc.add_paragraph("Signed {{ signed_on }}"); doc.save(d / "template.docx")
+    m = build_methods(ROOT / "templates", tmp_path / "out", data_dir=tmp_path / "data", credentials=CredentialStore(backend=FakeKeyring()), user_templates_dir=user)
+    values = yaml.safe_load((SRC / "values.example.yaml").read_text()) | {"signed_on": "2026-03-05"}
+    r = m["docgen.generate_batch"](Ctx(), templates=["doc-a", "doc-b"], values=values, batch_id="fmt1")
+    texts = {d["template_id"]: "\n".join(p.text for p in Document(d["docx_path"]).paragraphs) for d in r["documents"]}
+    assert "Signed 05/03/2026" in texts["doc-a"] and "Signed March 5th, 2026" in texts["doc-b"]      # no Settings choice: each template's own
+    m["settings.set"](Ctx(), key="date_format", value="D MMM YYYY")
+    r = m["docgen.generate_batch"](Ctx(), templates=["doc-a", "doc-b"], values=values, batch_id="fmt2")
+    texts = {d["template_id"]: "\n".join(p.text for p in Document(d["docx_path"]).paragraphs) for d in r["documents"]}
+    assert "Signed 5 Mar 2026" in texts["doc-a"] and "Signed 5 Mar 2026" in texts["doc-b"]          # Settings wins everywhere

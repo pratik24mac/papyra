@@ -31,7 +31,7 @@ test("clicking a day in the calendar, then review, then back", async ({ page }) 
   await expect(date).toHaveValue(/-15$/);
   await page.getByRole("button", { name: "Review details" }).click();
   await expect(page.getByText("Available from")).toBeVisible();
-  await expect(page.getByText(/-15$/).first()).toBeVisible();
+  await expect(page.getByText(/^15 [A-Z][a-z]+ 20\d\d$/).first()).toBeVisible();   // review shows the printed format
   await page.getByRole("button", { name: "Edit", exact: true }).first().click();
   await expect(date).toHaveValue(/-15$/);
   await page.getByRole("button", { name: "Review details" }).click();

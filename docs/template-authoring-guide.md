@@ -43,8 +43,10 @@ Set labels, `type`, `required`, `help`, `validation` (max_length, pattern, min/m
 
 ## 3b. Dates, images and the last page
 * **Dates** are entered with a picker and stored as `YYYY-MM-DD`; the document gets a formatted
-  string. Format precedence: field `format` → template `date_format` → Settings → Dates →
-  default `D MMMM YYYY` (12 March 2026). Tokens: `D` `DD` `Do` day, `M` `MM` `MMM` `MMMM`
+  string. Format precedence: field `format` → the user's choice in Settings → Dates → template
+  `date_format` → default `D MMMM YYYY` (12 March 2026). A template's `date_format` is only a
+  default for users who have not picked one; it never overrides their choice, so a batch prints
+  every document in the same format. Tokens: `D` `DD` `Do` day, `M` `MM` `MMM` `MMMM`
   month, `YY` `YYYY` year, `ddd` `dddd` weekday. Ordinal suffixes (12th) are raised as superscript
   like Word does; `template.ordinal_superscript: false` keeps them inline. Inside the document a single tag can re-format:
   `{{ joining_date | date("DD/MM/YYYY") }}`.

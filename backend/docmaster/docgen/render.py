@@ -166,14 +166,17 @@ def build_context(tpl, fields, values, date_format: str = DEFAULT_FORMAT):
     return ctx
 
 
-def render_docx(template_docx: Path, schema: dict, values: dict, out: Path, default_date_format: str | None = None) -> Path:
+def render_docx(template_docx: Path, schema: dict, values: dict, out: Path, default_date_format: str | None = None, app_date_format: str | None = None) -> Path:
+    """Date precedence: field `format` → `app_date_format` (the user's explicit Settings choice) →
+    template `date_format` → `default_date_format` → built-in. A template's format is therefore a
+    default for users who have not chosen one, never an override of their choice."""
     fields = validate(schema, values)
     tpl = DocxTemplate(template_docx)
     env = Environment(undefined=StrictUndefined, autoescape=True)
     env.filters["date"] = date_filter
     check_template_against_schema(tpl, schema, fields, env)
     meta = schema.get("template", {})
-    date_format = meta.get("date_format") or default_date_format or DEFAULT_FORMAT
+    date_format = app_date_format or meta.get("date_format") or default_date_format or DEFAULT_FORMAT
     RENDERED.clear()
     try:
         tpl.render(build_context(tpl, fields, values, date_format), jinja_env=env)
