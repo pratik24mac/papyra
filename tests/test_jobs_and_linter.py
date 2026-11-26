@@ -100,3 +100,20 @@ def test_cross_template_type_clash_is_a_warning():
     f = cross_template_findings({"resume v1": a, "cover v1": b})
     assert len(f) == 1 and f[0].code == "M004" and f[0].level == "warning" and "headline" in f[0].message and "full_name" not in f[0].message
     assert cross_template_findings({"resume v1": a}) == []
+
+
+def test_template_without_any_list_lints_fine(tmp_path):
+    """A plain document has no numbering part; python-docx throws when asked to create one, which
+    surfaced as 'template cannot be opened' for every list-free user template (2026-11-26)."""
+    from docx import Document
+    from docmaster.docgen.ooxml import defined_num_ids, numbering_ids_in_use
+    d = Document(); d.add_paragraph("Hello {{ name }}")
+    for rid, rel in list(d.part.rels.items()):                 # python-docx's default document ships a numbering part: drop it
+        if rel.reltype.endswith("/numbering"):
+            d.part.drop_rel(rid)
+    src = tmp_path / "plain.docx"; d.save(src)
+    import zipfile
+    assert not any(n.endswith("numbering.xml") for n in zipfile.ZipFile(src).namelist())
+    assert defined_num_ids(Document(src)) == set() and numbering_ids_in_use(Document(src)) == set()
+    schema = {"template": {"id": "plain", "version": 1, "name": "Plain", "file": "plain.docx"}, "groups": [{"id": "g", "label": "G", "fields": [{"id": "name", "label": "N", "type": "text", "required": True}]}]}
+    assert [str(f) for f in lint_template(src, schema) if f.level == "error"] == []

@@ -16,11 +16,20 @@ def numbering_ids_in_use(doc: _Document) -> set[str]:
     return {n.get(qn("w:val")) for n in doc.element.body.iter(qn("w:numId"))}
 
 
+def _numbering_element(doc: _Document):
+    """The numbering part's XML if the document has one. Never via `doc.part.numbering_part`,
+    which tries to *create* the part when it is missing and raises NotImplementedError."""
+    for rel in doc.part.rels.values():
+        if not rel.is_external and rel.reltype.endswith("/numbering"):
+            return getattr(rel.target_part, "element", None)
+    return None
+
+
 def defined_num_ids(doc: _Document) -> set[str]:
-    part = getattr(doc.part, "numbering_part", None)
-    if part is None or part.element is None:
+    el = _numbering_element(doc)
+    if el is None:
         return set()
-    return {n.get(qn("w:numId")) for n in part.element.findall(qn("w:num"))}
+    return {n.get(qn("w:numId")) for n in el.findall(qn("w:num"))}
 
 
 def restart_numbering(doc: _Document, paragraph: Paragraph, start: int = 1) -> int:
@@ -35,7 +44,9 @@ def restart_numbering(doc: _Document, paragraph: Paragraph, start: int = 1) -> i
     old_num_id = numpr.find(qn("w:numId")).get(qn("w:val"))
     ilvl_el = numpr.find(qn("w:ilvl"))
     ilvl = ilvl_el.get(qn("w:val")) if ilvl_el is not None else "0"
-    numbering = doc.part.numbering_part.element
+    numbering = _numbering_element(doc)
+    if numbering is None:
+        raise ValueError("document has no numbering part")
     old_num = next(n for n in numbering.findall(qn("w:num")) if n.get(qn("w:numId")) == old_num_id)
     abstract_id = old_num.find(qn("w:abstractNumId")).get(qn("w:val"))
     new_id = max((int(n.get(qn("w:numId"))) for n in numbering.findall(qn("w:num"))), default=0) + 1

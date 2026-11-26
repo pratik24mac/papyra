@@ -480,3 +480,9 @@ Setting `user_templates_dir` (absolute, created with README, remembered; `null` 
 `choose_templates_dir` (native picker) and `open_templates_dir` now opens the engine's current
 folder. Settings card "My templates folder": Choose folder…, Reset to default, Open. Tests: engine
 (switch, restart persistence, reset, validation) and e2e.
+
+## 2026-11-26 — "template cannot be opened" for templates without lists
+`defined_num_ids` used `doc.part.numbering_part`, which python-docx implements as "create the
+part if missing" and that raises NotImplementedError; every list-free user template failed to
+load. Now the numbering part is looked up through the document relationships and treated as
+absent when missing (same approach as headers). Regression test with the numbering part removed.
